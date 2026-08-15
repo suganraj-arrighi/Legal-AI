@@ -40,9 +40,21 @@ export class ExportActionsComponent {
   /** The off-screen node handed to html2pdf.js. */
   private readonly pdfRoot = viewChild.required<ElementRef<HTMLElement>>('pdfRoot');
 
-  /** Heading + sub-heading follow the document kind Gemini detected. */
+  /** The document's name — used as the mail subject when none was typed. */
   readonly heading = this.rti.docHeading;
-  readonly headingEn = this.rti.docHeadingEn;
+
+  /**
+   * What the page itself is headed with — empty for everything but an RTI
+   * application, so the statutory line never lands on a plain letter.
+   */
+  readonly printedHeading = this.rti.printedHeading;
+  readonly printedHeadingEn = this.rti.printedHeadingEn;
+
+  /** From/To blocks, printed on letters only. */
+  readonly fromAddress = this.rti.fromAddress;
+  readonly toAddress = this.rti.toAddress;
+  readonly showAddresses = this.rti.hasAddresses;
+
   readonly subject = this.rti.subject;
   readonly attachments = this.rti.attachments;
   readonly canExport = this.rti.canExport;
@@ -240,7 +252,7 @@ export class ExportActionsComponent {
       let pasteReady = false;
 
       if (!bodyFitsInUrl) {
-        pasteReady = await this.writeToClipboard(this.rti.buildPlainTextPetition());
+        pasteReady = await this.writeToClipboard(this.emailBody());
       }
 
       if (this.isMobile) {
@@ -307,13 +319,16 @@ export class ExportActionsComponent {
     }
   }
 
-  /** Copy the plain-text document — handy when pasting into Gmail by hand. */
+  /**
+   * Copy the plain-text document — handy when pasting into Gmail by hand.
+   * Uses the email projection, since pasting into a message is what it is for.
+   */
   async copyText(): Promise<void> {
     if (!this.canExport()) {
       return;
     }
 
-    if (await this.writeToClipboard(this.rti.buildPlainTextPetition())) {
+    if (await this.writeToClipboard(this.emailBody())) {
       this.toast.success('நகலெடுக்கப்பட்டது', 'The document text is on your clipboard.');
     } else {
       this.toast.error(
@@ -340,7 +355,7 @@ export class ExportActionsComponent {
     if (!includeBody) {
       return base;
     }
-    return `${base}&body=${encodeURIComponent(this.rti.buildPlainTextPetition())}`;
+    return `${base}&body=${encodeURIComponent(this.emailBody())}`;
   }
 
   /**
@@ -356,7 +371,15 @@ export class ExportActionsComponent {
     if (!includeBody) {
       return base;
     }
-    return `${base}&body=${encodeURIComponent(this.rti.buildPlainTextPetition())}`;
+    return `${base}&body=${encodeURIComponent(this.emailBody())}`;
+  }
+
+  /**
+   * The document as an email body: no From/To blocks, since the message
+   * already carries both in its own headers.
+   */
+  private emailBody(): string {
+    return this.rti.buildPlainTextPetition(false);
   }
 
   /** Clipboard write that reports success instead of throwing. */

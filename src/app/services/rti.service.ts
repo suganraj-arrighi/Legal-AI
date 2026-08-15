@@ -193,6 +193,20 @@ export class RtiService {
   private readonly _contentHtml = signal<string>('');
   readonly contentHtml = this._contentHtml.asReadonly();
 
+  /**
+   * Step 3 — sender and recipient blocks, typed by the advocate.
+   *
+   * Free-form multi-line text rather than structured fields: a Tamil postal
+   * address has no fixed shape (designation, office, taluk, district, pincode
+   * in whatever order the office uses), and forcing one would only make it
+   * harder to type. Letters alone print them — see {@link usesAddresses}.
+   */
+  private readonly _fromAddress = signal<string>('');
+  readonly fromAddress = this._fromAddress.asReadonly();
+
+  private readonly _toAddress = signal<string>('');
+  readonly toAddress = this._toAddress.asReadonly();
+
   /** Step 4 — compressed attachments. */
   private readonly _attachments = signal<RtiAttachment[]>([]);
   readonly attachments = this._attachments.asReadonly();
@@ -240,11 +254,48 @@ export class RtiService {
     () => DOCUMENT_KINDS[this._docKind()] ?? DOCUMENT_KINDS[DEFAULT_DOCUMENT_KIND]
   );
 
-  /** Tamil heading for the PDF/TXT — the model's own title when it gave one. */
+  /**
+   * The document's name — the model's own title when it gave one.
+   *
+   * This is the *internal* name: it seeds the Gmail subject when the advocate
+   * left the subject line empty, and it labels the document in the UI. What
+   * actually gets printed at the top of the page is {@link printedHeading},
+   * which is narrower.
+   */
   readonly docHeading = computed(() => this._docTitle().trim() || this.docMeta().headingTa);
 
-  /** English line printed under the Tamil heading on the PDF. */
+  /** English line that goes with {@link docHeading}. */
   readonly docHeadingEn = computed(() => this.docMeta().headingEn);
+
+  /**
+   * Only an RTI application carries a printed heading.
+   *
+   * The statutory line at the top belongs to an RTI filing and to nothing
+   * else: a letter, a complaint or a legal notice that opens with it reads as
+   * the wrong instrument, and stamping it on every export was putting "RTI" on
+   * documents that had no business claiming the Act. Everything else opens
+   * straight at the addresses, the date and the subject, which is how a formal
+   * Tamil letter is laid out anyway.
+   */
+  readonly printedHeading = computed(() => (this._docKind() === 'rti' ? this.docHeading() : ''));
+
+  /** English sub-heading, printed under {@link printedHeading} or not at all. */
+  readonly printedHeadingEn = computed(() => (this._docKind() === 'rti' ? this.docHeadingEn() : ''));
+
+  /**
+   * Does this document print From/To address blocks?
+   *
+   * Letters only. The other kinds address the recipient inside the body — an
+   * RTI application names the Public Information Officer in its first line,
+   * an appeal names the appellate authority — so a second address block above
+   * it would just repeat what the text already says.
+   */
+  readonly usesAddresses = computed(() => this._docKind() === 'letter');
+
+  /** True when a letter actually has something to print in either block. */
+  readonly hasAddresses = computed(
+    () => this.usesAddresses() && (this._fromAddress().trim().length > 0 || this._toAddress().trim().length > 0)
+  );
 
   /** Plain-text projection of the editor HTML (used for TXT/mailto/validation). */
   readonly plainText = computed(() => this.htmlToPlainText(this._contentHtml()));
@@ -296,6 +347,14 @@ export class RtiService {
     this._contentHtml.set(value ?? '');
   }
 
+  setFromAddress(value: string): void {
+    this._fromAddress.set(value ?? '');
+  }
+
+  setToAddress(value: string): void {
+    this._toAddress.set(value ?? '');
+  }
+
   setAttachments(files: RtiAttachment[]): void {
     this._attachments.set(files);
   }
@@ -332,6 +391,8 @@ export class RtiService {
     this._docKind.set(DEFAULT_DOCUMENT_KIND);
     this._docTitle.set('');
     this._contentHtml.set('');
+    this._fromAddress.set('');
+    this._toAddress.set('');
     this._aiStatus.set('idle');
     this._lastError.set(null);
     this._exportJob.set('none');
@@ -866,19 +927,39 @@ export class RtiService {
       .trim();
   }
 
-  /** The full document as a .txt payload (used by ZIP and the email body). */
-  buildPlainTextPetition(): string {
-    const lines = [
-      this.docHeading(),
-      '='.repeat(46),
-      '',
+  /**
+   * The full document as a .txt payload (used by ZIP and the email body).
+   *
+   * @param includeAddresses false for the email body: the From and To blocks
+   *   would only restate the mail's own headers, and the advocate is typing
+   *   the recipient into the To field anyway. The ZIP's `.txt` is a standalone
+   *   copy of the letter, so there they stay.
+   */
+  buildPlainTextPetition(includeAddresses = true): string {
+    const lines: string[] = [];
+
+    // Heading: RTI applications only, matching the PDF.
+    if (this.printedHeading()) {
+      lines.push(this.printedHeading(), '='.repeat(46), '');
+    }
+
+    if (includeAddresses && this.hasAddresses()) {
+      if (this.fromAddress().trim()) {
+        lines.push('அனுப்புநர் / From:', this.fromAddress().trim(), '');
+      }
+      if (this.toAddress().trim()) {
+        lines.push('பெறுநர் / To:', this.toAddress().trim(), '');
+      }
+    }
+
+    lines.push(
       `பொருள் / Subject: ${this.subject() || '(குறிப்பிடப்படவில்லை)'}`,
       '',
       '-'.repeat(46),
       '',
       this.plainText(),
       ''
-    ];
+    );
 
     const files = this._attachments();
     if (files.length) {

@@ -11,9 +11,10 @@
   <div class="px-5 py-5">
     <!-- ---------------- Document type ---------------- -->
     <!--
-      Set by Gemini from the dictation, overridable here. It drives the PDF
-      heading and the export file name — not the body text, which would need
-      another AI pass to rewrite.
+      Set by Gemini from the dictation, overridable here. It drives the export
+      file name, whether the PDF is headed with the RTI Act line (RTI only) and
+      whether the From/To boxes appear (letters only) — not the body text,
+      which would need another AI pass to rewrite.
     -->
     <div class="mb-5">
       <label for="doc-kind-select" class="field-label">ஆவண வகை / Document type</label>
@@ -32,6 +33,40 @@
         what you dictated — change it here if it guessed wrong.
       </p>
     </div>
+
+    <!-- ---------------- From / To (letters only) ---------------- -->
+    <!--
+      Printed at the top of the letter PDF and in the ZIP's .txt, but never in
+      the email body — a message already carries both addresses in its headers.
+    -->
+    @if (usesAddresses()) {
+      <div class="mb-5 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="from-address" class="field-label">அனுப்புநர் / From</label>
+          <textarea
+            id="from-address"
+            rows="3"
+            class="text-input resize-y leading-7"
+            placeholder="க. முருகன், வழக்கறிஞர்&#10;12, காந்தி சாலை,&#10;சேலம் - 636001"
+            [formControl]="fromControl"
+          ></textarea>
+        </div>
+        <div>
+          <label for="to-address" class="field-label">பெறுநர் / To</label>
+          <textarea
+            id="to-address"
+            rows="3"
+            class="text-input resize-y leading-7"
+            placeholder="ஆணையர்,&#10;மாநகராட்சி அலுவலகம்,&#10;சேலம் - 636001"
+            [formControl]="toControl"
+          ></textarea>
+        </div>
+      </div>
+      <p class="-mt-3 mb-5 text-xs text-ink-500">
+        கடிதத்தின் மேல் அச்சாகும்; காலியாக விட்டால் அந்தப் பகுதி வராது. மின்னஞ்சலில் இவை சேர்க்கப்படாது. / Printed at the
+        top of the letter PDF. Leave a box empty and it is simply omitted; neither appears in the email body.
+      </p>
+    }
 
     <!-- ---------------- Subject line ---------------- -->
     <div class="mb-5">

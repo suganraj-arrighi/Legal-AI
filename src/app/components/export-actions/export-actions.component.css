@@ -60,6 +60,31 @@
   color: #333333;
 }
 
+/* From/To blocks on a letter. Stacked, not side by side: a Tamil address runs
+   long and two columns would wrap it into an unreadable ladder. */
+.pdf-addresses {
+  margin-bottom: 18px;
+}
+
+.pdf-address + .pdf-address {
+  margin-top: 14px;
+}
+
+.pdf-address-label {
+  margin: 0 0 2px;
+  font-size: 10.5pt;
+  font-weight: 700;
+}
+
+/* `white-space: pre-line` keeps the line breaks the advocate typed without
+   letting the indentation of this template leak into the page. */
+.pdf-address-body {
+  margin: 0;
+  font-size: 11.5pt;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
 .pdf-meta {
   display: flex;
   justify-content: flex-end;

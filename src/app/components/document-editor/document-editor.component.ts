@@ -44,6 +44,8 @@ export class DocumentEditorComponent {
 
   readonly subjectControl = new FormControl<string>('', { nonNullable: true });
   readonly contentControl = new FormControl<string>('', { nonNullable: true });
+  readonly fromControl = new FormControl<string>('', { nonNullable: true });
+  readonly toControl = new FormControl<string>('', { nonNullable: true });
 
   readonly hasContent = this.rti.hasContent;
   readonly isLoading = this.rti.isLoading;
@@ -51,6 +53,14 @@ export class DocumentEditorComponent {
   /** Document kind Gemini detected, plus the list for the override dropdown. */
   readonly docKind = this.rti.docKind;
   readonly docKindOptions = DOCUMENT_KIND_OPTIONS;
+
+  /**
+   * Letters get From/To boxes; every other kind names its recipient inside
+   * the body text, so the boxes would be a second, contradictory address.
+   * Hidden rather than disabled — and what was typed survives a trip through
+   * another kind and back, since the service keeps the values.
+   */
+  readonly usesAddresses = this.rti.usesAddresses;
 
   /** Quill takes a moment to boot; show a placeholder box until then. */
   readonly editorReady = signal(false);
@@ -79,10 +89,34 @@ export class DocumentEditorComponent {
       }
     });
 
+    // Nothing writes the addresses but these boxes — except "புதிய மனு",
+    // which clears them, and that has to reach the controls too.
+    effect(() => {
+      const from = this.rti.fromAddress();
+      if (from !== this.fromControl.value) {
+        this.fromControl.setValue(from, { emitEvent: false });
+      }
+    });
+
+    effect(() => {
+      const to = this.rti.toAddress();
+      if (to !== this.toControl.value) {
+        this.toControl.setValue(to, { emitEvent: false });
+      }
+    });
+
     /* ---------------- controls → service (advocate typing) --------------- */
     this.subjectControl.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => this.rti.setSubject(value ?? ''));
+
+    this.fromControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.rti.setFromAddress(value ?? ''));
+
+    this.toControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.rti.setToAddress(value ?? ''));
 
     this.contentControl.valueChanges
       .pipe(

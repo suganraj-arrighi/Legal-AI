@@ -103,10 +103,31 @@
 -->
 <div class="pdf-staging" aria-hidden="true">
   <div #pdfRoot class="pdf-page">
-    <header class="pdf-header">
-      <h1>{{ heading() }}</h1>
-      <p class="pdf-subheading">{{ headingEn() }}</p>
-    </header>
+    <!-- Only an RTI application is headed with the statutory line. -->
+    @if (printedHeading()) {
+      <header class="pdf-header">
+        <h1>{{ printedHeading() }}</h1>
+        <p class="pdf-subheading">{{ printedHeadingEn() }}</p>
+      </header>
+    }
+
+    <!-- Letters open with the sender and recipient, as a posted letter does. -->
+    @if (showAddresses()) {
+      <div class="pdf-addresses">
+        @if (fromAddress().trim()) {
+          <div class="pdf-address">
+            <p class="pdf-address-label">அனுப்புநர் / From</p>
+            <p class="pdf-address-body">{{ fromAddress().trim() }}</p>
+          </div>
+        }
+        @if (toAddress().trim()) {
+          <div class="pdf-address">
+            <p class="pdf-address-label">பெறுநர் / To</p>
+            <p class="pdf-address-body">{{ toAddress().trim() }}</p>
+          </div>
+        }
+      </div>
+    }
 
     <div class="pdf-meta">
       <span>தேதி / Date: {{ todayLabel() }}</span>

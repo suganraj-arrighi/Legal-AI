@@ -180,25 +180,39 @@ HTML-sanitised before it reaches Quill.
 
 ### Document types
 
-| `doc_type` | Heading printed | File prefix |
-|---|---|---|
-| `rti` | தகவல் அறியும் உரிமைச் சட்டம் - 2005 விண்ணப்பம் | `RTI-` |
-| `complaint` | புகார் மனு | `Complaint-` |
-| `appeal` | மேல்முறையீட்டு மனு | `Appeal-` |
-| `legal_notice` | சட்ட அறிவிப்பு | `Legal-Notice-` |
-| `request` | கோரிக்கை மனு | `Request-` |
-| `reminder` | நினைவூட்டல் கடிதம் | `Reminder-` |
-| `letter` | மனு | `Letter-` |
+| `doc_type` | Document name | Printed at the top? | From/To blocks | File prefix |
+|---|---|---|---|---|
+| `rti` | தகவல் அறியும் உரிமைச் சட்டம் - 2005 விண்ணப்பம் | **yes** | no | `RTI-` |
+| `complaint` | புகார் மனு | no | no | `Complaint-` |
+| `appeal` | மேல்முறையீட்டு மனு | no | no | `Appeal-` |
+| `legal_notice` | சட்ட அறிவிப்பு | no | no | `Legal-Notice-` |
+| `request` | கோரிக்கை மனு | no | no | `Request-` |
+| `reminder` | நினைவூட்டல் கடிதம் | no | no | `Reminder-` |
+| `letter` | மனு | no | **yes** | `Letter-` |
 
-The catalogue lives in `DOCUMENT_KINDS` (`rti.service.ts`); the detected kind drives the PDF
-heading, the English sub-heading, the `.txt` header and the export file name. The model may
-also return its own `doc_title`, which wins over the generic heading for that draft.
+The catalogue lives in `DOCUMENT_KINDS` (`rti.service.ts`). The detected kind drives the export
+file name, the document's internal name, and two things that only one kind each gets:
+
+**The printed heading is RTI-only.** `printedHeading` is empty for every other kind, so the PDF
+and the `.txt` open straight at the date and subject. The statutory line belongs to an RTI
+filing and to nothing else — a letter or a legal notice headed with it reads as the wrong
+instrument, and the earlier behaviour stamped it on documents that never claimed the Act. The
+kind's name still exists as `docHeading`; it seeds the mail subject when the advocate left the
+subject line empty, and the model's own `doc_title` still wins over the generic name there.
+
+**From/To blocks are letters-only.** Two free-form textareas in Step 3 (`usesAddresses`), printed
+above the date on the PDF and in the ZIP's `.txt` — but never in the email body, where they
+would only restate the message's own headers. Free-form rather than structured fields because a
+Tamil postal address has no fixed shape. The other kinds name their recipient in the body text
+(an RTI application opens by naming the Public Information Officer), so a block above it would
+be a second, competing address. `buildPlainTextPetition(includeAddresses)` is the switch: the
+ZIP passes the default `true`, every email path passes `false`.
 
 An unrecognised `doc_type` degrades to `letter`, never to `rti` — mislabelling a complaint as
 an RTI application is exactly the failure the classification exists to prevent. Step 3 has a
 **ஆவண வகை / Document type** dropdown so the advocate can correct a wrong guess; it re-labels
-the document (heading, file name) but does not rewrite the body, which would need another
-Gemini call.
+the document (heading, file name, address blocks) but does not rewrite the body, which would
+need another Gemini call.
 
 **3. Editor** — ngx-quill with a deliberately small toolbar. Service→control sync uses
 `emitEvent: false`, control→service is debounced 150 ms; the two directions cannot loop.
