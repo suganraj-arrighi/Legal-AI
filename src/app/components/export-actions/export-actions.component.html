@@ -38,9 +38,11 @@
         [disabled]="!canExport()"
         (click)="sendEmail()"
         [title]="
-          isMobile
-            ? 'Opens your mail app with the subject and body filled in'
-            : 'Opens a Gmail compose tab with the subject and body filled in'
+          isMobile && attachments().length
+            ? 'Opens the share sheet — pick Gmail to get the subject, body and attachments'
+            : isMobile
+              ? 'Opens your mail app with the subject and body filled in'
+              : 'Opens a Gmail compose tab with the subject and body filled in'
         "
       >
         <span aria-hidden="true">✉️</span>
@@ -63,7 +65,12 @@
       <ul class="mt-4 space-y-1 text-xs text-ink-500">
         <li>• PDF: A4, formal Tamil header, page breaks handled automatically.</li>
         <li>• ZIP: document as <code>.txt</code> + all compressed attachments.</li>
-        @if (isMobile) {
+        @if (isMobile && attachments().length) {
+          <li>
+            • மின்னஞ்சல்: opens the share sheet — pick Gmail and your
+            {{ attachments().length }} attachment(s) travel with the draft. Add the PDF/ZIP yourself if you need it.
+          </li>
+        } @else if (isMobile) {
           <li>• மின்னஞ்சல்: opens your phone's mail app — attach the PDF/ZIP yourself.</li>
         } @else {
           <li>• Gmail: opens a compose tab in a new window — attach the PDF/ZIP yourself.</li>
@@ -149,6 +156,18 @@
           }
         </ol>
       </section>
+
+      <!--
+        Evidence photos printed after the list. The list alone named a document
+        the reader never got to see; an enclosure is only enclosed once it is
+        on the page. Non-image attachments have no previewUrl and stay names.
+      -->
+      @for (file of imageAttachments(); track file.id) {
+        <figure class="pdf-figure">
+          <img [src]="file.previewUrl" [alt]="file.name" />
+          <figcaption>{{ file.name }}</figcaption>
+        </figure>
+      }
     }
 
     <footer class="pdf-footer">

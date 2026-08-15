@@ -57,6 +57,18 @@ export class ExportActionsComponent {
 
   readonly subject = this.rti.subject;
   readonly attachments = this.rti.attachments;
+
+  /**
+   * The attachments the PDF can actually draw.
+   *
+   * A PDF is a page, not a container, so only the images can be printed into
+   * it — a .docx enclosure has nothing to render and stays a name in the
+   * list. `previewUrl` is the real precondition rather than `isImage` alone:
+   * an image whose object URL was never created has no source to draw from.
+   */
+  readonly imageAttachments = computed(() =>
+    this.attachments().filter((file) => file.isImage && file.previewUrl)
+  );
   readonly canExport = this.rti.canExport;
   readonly exportJob = this.rti.exportJob;
   readonly hasContent = this.rti.hasContent;
@@ -161,6 +173,11 @@ export class ExportActionsComponent {
         await document.fonts.ready;
       }
 
+      // …and for the evidence photos, for the same reason. html2canvas clones
+      // the node and draws whatever each <img> holds at that instant, so an
+      // attachment still decoding comes out as an empty frame.
+      await this.awaitPdfImages();
+
       const { default: html2pdf } = await import('html2pdf.js');
 
       await html2pdf()
@@ -192,6 +209,27 @@ export class ExportActionsComponent {
     }
   }
 
+  /**
+   * Resolve once every `<img>` in the hidden PDF node has finished decoding.
+   *
+   * A failed image resolves too rather than rejecting: a single unreadable
+   * photo should cost the advocate that one frame, not the whole export.
+   */
+  private async awaitPdfImages(): Promise<void> {
+    const images = Array.from(this.pdfRoot().nativeElement.querySelectorAll('img'));
+
+    await Promise.all(
+      images.map((img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>((resolve) => {
+              img.addEventListener('load', () => resolve(), { once: true });
+              img.addEventListener('error', () => resolve(), { once: true });
+            })
+      )
+    );
+  }
+
   /* ------------------------------- ZIP ---------------------------------- */
 
   async downloadZip(): Promise<void> {
@@ -212,19 +250,8 @@ export class ExportActionsComponent {
       const files = this.attachments();
       if (files.length) {
         const folder = zip.folder('இணைப்புகள்-attachments');
-        const usedNames = new Set<string>();
-
-        for (const file of files) {
-          // Guard against two photos called IMG_0001.jpg overwriting each other.
-          let name = file.name;
-          let counter = 2;
-          while (usedNames.has(name)) {
-            name = file.name.replace(/(\.[^.]+)?$/, `-${counter}$1`);
-            counter++;
-          }
-          usedNames.add(name);
-          folder?.file(name, file.blob);
-        }
+        const names = this.uniqueAttachmentNames();
+        files.forEach((file, i) => folder?.file(names[i], file.blob));
       }
 
       const blob = await zip.generateAsync({
@@ -269,6 +296,31 @@ export class ExportActionsComponent {
     }
 
     try {
+      // An attached photo can only reach the message through the OS share
+      // sheet, so on a phone that route is tried first whenever there is one.
+      if (this.isMobile && this.attachments().length) {
+        const outcome = await this.shareWithAttachments();
+
+        if (outcome === 'shared') {
+          this.toast.success(
+            'மின்னஞ்சல் ஆப்-க்கு அனுப்பப்பட்டது',
+            `The draft and its ${this.attachments().length} attachment(s) were handed to the app you picked. Fill in the To field and send.`
+          );
+          return;
+        }
+
+        // A dismissed share sheet is a decision, not a failure — falling
+        // through would re-open something the advocate just closed.
+        if (outcome === 'cancelled') {
+          return;
+        }
+
+        this.toast.warning(
+          'இணைப்புகளைச் சேர்க்க முடியவில்லை',
+          'This browser cannot hand files to the mail app, so the message will carry the text only. Download the ZIP and attach it in Gmail yourself.'
+        );
+      }
+
       // Short enough to carry in the link? Then the advocate gets a compose
       // window that is ready to send. Otherwise the body goes via the clipboard.
       const bodyFitsInUrl = !this.emailNeedsPaste();
@@ -406,11 +458,86 @@ export class ExportActionsComponent {
   }
 
   /**
-   * The document as an email body: no From/To blocks, since the message
-   * already carries both in its own headers.
+   * The document as an email body: no From/To blocks and no subject line,
+   * since the message already carries all three in its own headers.
    */
   private emailBody(): string {
     return this.rti.buildPlainTextPetition(false);
+  }
+
+  /**
+   * Attachment names with collisions broken, positionally matching
+   * {@link attachments}.
+   *
+   * A gallery hands back several photos called IMG_0001.jpg often enough that
+   * both export routes need this: inside a ZIP the later one would overwrite
+   * the earlier, and on a mail compose two identically named attachments are
+   * impossible to tell apart.
+   */
+  private uniqueAttachmentNames(): string[] {
+    const used = new Set<string>();
+
+    return this.attachments().map((file) => {
+      let name = file.name;
+      let counter = 2;
+      while (used.has(name)) {
+        name = file.name.replace(/(\.[^.]+)?$/, `-${counter}$1`);
+        counter++;
+      }
+      used.add(name);
+      return name;
+    });
+  }
+
+  /**
+   * Hand the draft to the OS share sheet, attachments and all.
+   *
+   * This is the only route by which a photo actually reaches the message. A
+   * `mailto:` link and a Gmail compose URL both carry text and nothing else,
+   * so an attached image could only ever be *named* in the body — which is
+   * what the "இணைப்புகள்" list at the end of the text does. `navigator.share`
+   * passes real `File` objects instead, and Gmail, the target these advocates
+   * pick, turns them into attachments on a fresh compose.
+   *
+   * It also sidesteps the length problem entirely: there is no URL here, so
+   * the whole petition travels however long it is.
+   *
+   * @returns 'shared' on success, 'cancelled' when the advocate dismissed the
+   *   sheet, 'unsupported' when this browser cannot share files at all — only
+   *   the last of which should fall back to a mail link.
+   */
+  private async shareWithAttachments(): Promise<'shared' | 'cancelled' | 'unsupported'> {
+    if (!navigator.canShare || !navigator.share) {
+      return 'unsupported';
+    }
+
+    const names = this.uniqueAttachmentNames();
+    const payload: ShareData = {
+      // Chrome maps `title` to EXTRA_SUBJECT, so Gmail opens with the subject
+      // already filled in, exactly as the mailto path does.
+      title: this.subject() || this.heading(),
+      text: this.emailBody(),
+      files: this.attachments().map(
+        (file, i) => new File([file.blob], names[i], { type: file.type || 'application/octet-stream' })
+      )
+    };
+
+    // canShare() is the only honest test: file sharing is refused per payload
+    // (by type and by total size), not per browser.
+    if (!navigator.canShare(payload)) {
+      return 'unsupported';
+    }
+
+    try {
+      await navigator.share(payload);
+      return 'shared';
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return 'cancelled';
+      }
+      console.error('[ExportActions] share sheet failed:', err);
+      return 'unsupported';
+    }
   }
 
   /** Clipboard write that reports success instead of throwing. */

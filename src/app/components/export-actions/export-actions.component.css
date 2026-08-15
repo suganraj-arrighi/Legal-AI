@@ -109,6 +109,30 @@
   page-break-inside: avoid;
 }
 
+/* One evidence photo per block, each kept whole on a single page. A tall
+   photo is capped by height rather than width so it cannot run past the
+   bottom of an A4 page: 210 mm of printable height at 96 dpi is ~740 px, and
+   620 px leaves room for the caption and the page margins. */
+.pdf-figure {
+  margin: 16px 0 0;
+  page-break-inside: avoid;
+  text-align: center;
+}
+
+.pdf-figure img {
+  max-width: 100%;
+  max-height: 620px;
+  height: auto;
+  border: 1px solid #cccccc;
+}
+
+.pdf-figure figcaption {
+  margin-top: 4px;
+  font-size: 9.5pt;
+  color: #333333;
+  word-break: break-all;
+}
+
 .pdf-attachments h2 {
   font-size: 12pt;
   font-weight: 700;

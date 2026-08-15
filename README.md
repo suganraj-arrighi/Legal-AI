@@ -193,20 +193,31 @@ HTML-sanitised before it reaches Quill.
 The catalogue lives in `DOCUMENT_KINDS` (`rti.service.ts`). The detected kind drives the export
 file name, the document's internal name, and two things that only one kind each gets:
 
-**The printed heading is RTI-only.** `printedHeading` is empty for every other kind, so the PDF
-and the `.txt` open straight at the date and subject. The statutory line belongs to an RTI
-filing and to nothing else — a letter or a legal notice headed with it reads as the wrong
-instrument, and the earlier behaviour stamped it on documents that never claimed the Act. The
-kind's name still exists as `docHeading`; it seeds the mail subject when the advocate left the
-subject line empty, and the model's own `doc_title` still wins over the generic name there.
+**The printed heading is RTI-only, and it is always the statutory line.** `printedHeading` is
+empty for every other kind, so the PDF and the `.txt` open straight at the date and subject.
+The statutory line belongs to an RTI filing and to nothing else — a letter or a legal notice
+headed with it reads as the wrong instrument, and the earlier behaviour stamped it on documents
+that never claimed the Act.
+
+For an RTI it resolves to the fixed `DOCUMENT_KINDS.rti.headingTa`, deliberately *not* to
+`docHeading`. The heading of a statutory filing is not a thing the model gets to name: asked for
+an RTI application Gemini may still answer `doc_title: "மனு"`, and that generic word printed
+where the Act should be cited makes the filing look like an ordinary petition. `doc_title` keeps
+its other two jobs — labelling the document in the UI, and seeding the mail subject when the
+advocate left the subject line empty, where it still wins over the kind's generic name.
 
 **From/To blocks are letters-only.** Two free-form textareas in Step 3 (`usesAddresses`), printed
 above the date on the PDF and in the ZIP's `.txt` — but never in the email body, where they
 would only restate the message's own headers. Free-form rather than structured fields because a
 Tamil postal address has no fixed shape. The other kinds name their recipient in the body text
 (an RTI application opens by naming the Public Information Officer), so a block above it would
-be a second, competing address. `buildPlainTextPetition(includeAddresses)` is the switch: the
-ZIP passes the default `true`, every email path passes `false`.
+be a second, competing address. `buildPlainTextPetition(includeAddressAndSubject)` is the
+switch: the ZIP passes the default `true`, every email path passes `false`.
+
+The subject line rides the same switch, for the same reason. A mail message carries its subject
+in a header, so the `பொருள் / Subject:` line above the letter showed the advocate the same text
+twice — once in Gmail's Subject field, once at the top of the body. The ZIP's `.txt` has no
+headers wrapped around it, so there the line stays.
 
 An unrecognised `doc_type` degrades to `letter`, never to `rti` — mislabelling a complaint as
 an RTI application is exactly the failure the classification exists to prevent. Step 3 has a
@@ -232,10 +243,21 @@ Images are decoded with `createImageBitmap` (falling back to
 row shows `5.2 MB → 210 KB  −96%`. Non-images, SVG/GIF, already-small files, and files where
 JPEG re-encoding would *grow* the result are stored untouched with a reason shown.
 
-**5. Export** — `html2pdf.js` renders a hidden, print-styled A4 node (headed with the detected
-document type) at 2× scale, after awaiting `document.fonts.ready` so Tamil glyphs are loaded.
-`jszip` bundles the document `.txt` plus every attachment (duplicate filenames get `-2`, `-3`
-suffixes). Both libraries are dynamically `import()`ed, so neither is in the initial bundle.
+**5. Export** — `html2pdf.js` renders a hidden, print-styled A4 node at 2× scale, after awaiting
+`document.fonts.ready` so Tamil glyphs are loaded. `jszip` bundles the document `.txt` plus every
+attachment (duplicate filenames get `-2`, `-3` suffixes, from the same `uniqueAttachmentNames()`
+the share sheet uses). Both libraries are dynamically `import()`ed, so neither is in the initial
+bundle.
+
+**Evidence photos are printed into the PDF**, one figure per image after the enclosure list,
+each `page-break-inside: avoid` and capped at 620 px tall so a portrait photo cannot run off the
+bottom of the page. The list on its own named a document the reader never got to see. Only
+`imageAttachments()` are drawn — a non-image enclosure has nothing to render and stays a name.
+
+`awaitPdfImages()` runs alongside the font wait, for the same reason: html2canvas clones the
+node and draws whatever each `<img>` holds at that instant, so a photo still decoding comes out
+as an empty frame. A failed image resolves rather than rejecting — one unreadable photo should
+cost that frame, not the whole export.
 
 **Email** takes a different route per platform, because the two fail in opposite directions.
 
@@ -250,7 +272,20 @@ the way. So mobile gets the `mailto:` link instead — every phone has a mail ha
 and for these advocates it is Gmail. Detection is by user agent, plus `maxTouchPoints` to catch
 iPadOS 13+, which reports a desktop Safari UA.
 
-Either way a link cannot carry attachments, so the PDF/ZIP is still attached by hand.
+**Attachments go through the share sheet, not the link.** No mail link of either kind can carry
+a file, so an attached photo could only ever be *named* in the body — which is what the
+"இணைப்புகள்" list at the end of the text does, and it is not what the advocate meant by
+attaching it. On a phone with at least one attachment, `sendEmail()` therefore tries
+`navigator.share({title, text, files})` first: real `File` objects reach Gmail as real
+attachments, Chrome maps `title` to `EXTRA_SUBJECT` so the subject still arrives, and with no
+URL involved the length limits below stop applying to that path entirely.
+
+`navigator.canShare(payload)` is the gate, because file sharing is refused per payload — by
+type and by total size — rather than per browser. Three outcomes, and only one of them falls
+back: a dismissed sheet returns `cancelled` and stops, since re-opening a mail link over
+something the advocate just closed is worse than doing nothing. `unsupported` warns that the
+files will not travel and continues to the mail link. The PDF is still attached by hand; only
+the Step 4 attachments ride along.
 
 **The compose-URL length limit.** Gmail answers an over-long compose URL with a flat
 `400 Bad Request`. The boundary was measured against Google's front end, not guessed — an
@@ -273,11 +308,18 @@ turns every byte into three URL characters, so one dictated character costs **ni
 the clipboard and opens Gmail with **the subject only**, then toasts "Ctrl+V". Under it, the
 body rides in the link and the message is ready to send.
 
-**The `mailto:` length limit** is lower and set by the OS rather than a server: Android passes
-the URI to the mail app through an Intent and iOS through a URL open, and both truncate a long
-body silently instead of erroring. `MAX_MAILTO_URL_LENGTH` is **2 000** — about 220 Tamil
-characters — and past it the mobile path does the same subject-only-plus-clipboard fallback,
+**The `mailto:` length limit** is set by the OS rather than a server, and the two mobile
+platforms are nowhere near each other — so there are two ceilings, picked by `platform.isIos`.
+Past whichever applies, the mobile path does the same subject-only-plus-clipboard fallback,
 toasting "long-press and Paste" rather than "Ctrl+V".
+
+`MAX_MAILTO_URL_LENGTH_IOS` is **2 000** — about 220 Tamil characters — because Safari hands the
+URI to Mail through a plain URL open, which truncates a long body silently instead of erroring.
+`MAX_MAILTO_URL_LENGTH_ANDROID` is **30 000**, about 3 300 Tamil characters: Chrome turns the URI
+into an `ACTION_SENDTO` Intent that travels over Binder, whose transaction budget is around a
+megabyte, so the practical limit is far above anything anyone dictates. These were one shared
+2 000 until the iOS figure turned out to be governing Android too, which meant every petition
+longer than a short paragraph reached Gmail with its subject filled in and its body missing.
 
 ---
 
@@ -312,6 +354,8 @@ toasting "long-press and Paste" rather than "Ctrl+V".
 | Gmail body too long for a URL | Above 7 800 URL chars (~850 Tamil characters) the body is put on the clipboard and Gmail opens with the subject only — avoids Gmail's `400 Bad Request` |
 | Clipboard blocked on that path | Falls back to a subject-only compose window with a warning naming the "உரையை நகலெடு" button |
 | Gmail tab blocked by a popup blocker | `window.open` returning null is detected and explained, pointing at "உரையை நகலெடு" |
+| Browser cannot share files | `canShare()` false → warning that the message carries text only, then the normal mail link |
+| Share sheet dismissed | Treated as a decision, not an error — nothing else opens |
 | Unrecognised `doc_type` from Gemini | Falls back to `letter` — never to `rti` |
 | Clipboard blocked | Caught and explained |
 | Anything uncaught | `GlobalErrorHandler` turns it into a toast instead of a frozen page |
@@ -342,11 +386,15 @@ Loading is a single derived signal — `isLoading = aiStatus==='loading' || expo
 - `gemini-3.7-flash` returns 503 "experiencing high demand" in bursts on the free tier. The
   automatic retry absorbs short spikes; a longer outage still surfaces an error, and the
   dictation is preserved so "மீண்டும் முயற்சி / Retry" costs nothing but the wait.
-- The Gmail compose link cannot carry attachments — the PDF/ZIP must be attached by hand. It
-  also assumes Gmail; there is no default-mail-client path any more.
-- Documents past ~850 Tamil characters arrive via the clipboard rather than in the link (see
-  above). Removing that paste step for long petitions would mean the Gmail API and an OAuth
-  consent flow, which needs a backend this app deliberately does not have.
+- On a desktop the Gmail compose link cannot carry attachments — the PDF/ZIP must be attached by
+  hand, since `navigator.share` has no useful mail target there. It also assumes Gmail; there is
+  no default-mail-client path any more.
+- On a phone the share sheet carries the Step 4 attachments but not the PDF, which is generated
+  on demand and would have to be rendered before the sheet opens.
+- Desktop documents past ~850 Tamil characters arrive via the clipboard rather than in the link
+  (see above). Removing that paste step would mean the Gmail API and an OAuth consent flow,
+  which needs a backend this app deliberately does not have. On a phone with an attachment the
+  share sheet avoids the limit entirely.
 - Classification is a model judgement. It is shown in the Step 2 success panel and in the
   Step 3 dropdown so a wrong guess is visible and correctable, but changing the type there
   re-labels the document without rewriting the body.

@@ -268,16 +268,24 @@ export class RtiService {
   readonly docHeadingEn = computed(() => this.docMeta().headingEn);
 
   /**
-   * Only an RTI application carries a printed heading.
+   * Only an RTI application carries a printed heading, and it is always the
+   * statutory line — never {@link docHeading}.
    *
-   * The statutory line at the top belongs to an RTI filing and to nothing
-   * else: a letter, a complaint or a legal notice that opens with it reads as
-   * the wrong instrument, and stamping it on every export was putting "RTI" on
+   * The line at the top belongs to an RTI filing and to nothing else: a
+   * letter, a complaint or a legal notice that opens with it reads as the
+   * wrong instrument, and stamping it on every export was putting "RTI" on
    * documents that had no business claiming the Act. Everything else opens
    * straight at the addresses, the date and the subject, which is how a formal
    * Tamil letter is laid out anyway.
+   *
+   * The fixed `headingTa` is used rather than the model's `doc_title` because
+   * the heading of a statutory filing is not a thing the model gets to name.
+   * Asked for an RTI application it may still answer `doc_title: "மனு"`, and
+   * that generic word printed where the Act should be cited makes the
+   * document look like an ordinary petition. `doc_title` keeps its job of
+   * labelling the document in the UI and seeding the mail subject.
    */
-  readonly printedHeading = computed(() => (this._docKind() === 'rti' ? this.docHeading() : ''));
+  readonly printedHeading = computed(() => (this._docKind() === 'rti' ? this.docMeta().headingTa : ''));
 
   /** English sub-heading, printed under {@link printedHeading} or not at all. */
   readonly printedHeadingEn = computed(() => (this._docKind() === 'rti' ? this.docHeadingEn() : ''));
@@ -930,12 +938,14 @@ export class RtiService {
   /**
    * The full document as a .txt payload (used by ZIP and the email body).
    *
-   * @param includeAddresses false for the email body: the From and To blocks
-   *   would only restate the mail's own headers, and the advocate is typing
-   *   the recipient into the To field anyway. The ZIP's `.txt` is a standalone
-   *   copy of the letter, so there they stay.
+   * @param includeAddressAndSubject false for the email body. A mail message
+   *   already carries the sender, the recipient and the subject in its own
+   *   headers, so repeating them at the top of the text shows the advocate the
+   *   same subject twice — once in Gmail's Subject field and again on the line
+   *   above the letter. The ZIP's `.txt` is a standalone copy with no headers
+   *   around it, so there all three stay.
    */
-  buildPlainTextPetition(includeAddresses = true): string {
+  buildPlainTextPetition(includeAddressAndSubject = true): string {
     const lines: string[] = [];
 
     // Heading: RTI applications only, matching the PDF.
@@ -943,23 +953,20 @@ export class RtiService {
       lines.push(this.printedHeading(), '='.repeat(46), '');
     }
 
-    if (includeAddresses && this.hasAddresses()) {
-      if (this.fromAddress().trim()) {
-        lines.push('அனுப்புநர் / From:', this.fromAddress().trim(), '');
+    if (includeAddressAndSubject) {
+      if (this.hasAddresses()) {
+        if (this.fromAddress().trim()) {
+          lines.push('அனுப்புநர் / From:', this.fromAddress().trim(), '');
+        }
+        if (this.toAddress().trim()) {
+          lines.push('பெறுநர் / To:', this.toAddress().trim(), '');
+        }
       }
-      if (this.toAddress().trim()) {
-        lines.push('பெறுநர் / To:', this.toAddress().trim(), '');
-      }
+
+      lines.push(`பொருள் / Subject: ${this.subject() || '(குறிப்பிடப்படவில்லை)'}`, '', '-'.repeat(46), '');
     }
 
-    lines.push(
-      `பொருள் / Subject: ${this.subject() || '(குறிப்பிடப்படவில்லை)'}`,
-      '',
-      '-'.repeat(46),
-      '',
-      this.plainText(),
-      ''
-    );
+    lines.push(this.plainText(), '');
 
     const files = this._attachments();
     if (files.length) {
