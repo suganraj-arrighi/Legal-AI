@@ -16,35 +16,22 @@
 
   <div class="px-5 py-5">
     <!--
-      The file input lives OUTSIDE the drop zone on purpose: a programmatic
+      The file inputs live OUTSIDE the drop zone on purpose: a programmatic
       .click() on a nested input bubbles back to the zone's own click handler
       and re-opens the picker forever.
-    -->
-    <input
-      #fileInput
-      type="file"
-      class="hidden"
-      multiple
-      accept="image/*,application/pdf,.doc,.docx,.txt"
-      (change)="onFileInput($event)"
-    />
 
-    <!-- ---------------- Drop zone ---------------- -->
-    <div
-      class="dropzone"
-      [class.dropzone--active]="isDragging()"
-      [class.dropzone--busy]="isProcessing()"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave($event)"
-      (drop)="onDrop($event)"
-      (click)="fileInput.click()"
-      (keydown.enter)="fileInput.click()"
-      (keydown.space)="fileInput.click()"
-      tabindex="0"
-      role="button"
-      aria-label="கோப்புகளைத் தேர்ந்தெடு / Choose files to attach"
-    >
-      @if (isProcessing()) {
+      One input per source rather than one shared input whose `accept` is
+      rewritten before each .click(): Android reads `accept` when the picker
+      opens, and the attribute change had not always landed by then.
+    -->
+    <input #imageInput type="file" class="hidden" multiple [accept]="acceptImages" (change)="onFileInput($event)" />
+    <input #audioInput type="file" class="hidden" multiple [accept]="acceptAudio" (change)="onFileInput($event)" />
+    <input #docInput type="file" class="hidden" multiple [accept]="acceptDocs" (change)="onFileInput($event)" />
+    <input #fileInput type="file" class="hidden" multiple [accept]="acceptAll" (change)="onFileInput($event)" />
+
+    @if (isProcessing()) {
+      <!-- Shared busy panel — the phone and desktop layouts report alike. -->
+      <div class="dropzone dropzone--busy">
         <p class="text-sm font-semibold text-ink-800">சுருக்கப்படுகிறது…</p>
         @if (progress(); as p) {
           <p class="mt-1 text-xs text-ink-500">Compressing {{ p.done }} / {{ p.total }}</p>
@@ -55,7 +42,46 @@
             ></div>
           </div>
         }
-      } @else {
+      </div>
+    } @else if (isMobile) {
+      <!-- ---------------- Mobile: one tap target per source ---------------- -->
+      <div class="grid grid-cols-3 gap-3">
+        <button type="button" class="source-button" (click)="imageInput.click()">
+          <span class="text-2xl" aria-hidden="true">🖼️</span>
+          <span class="mt-1 text-sm font-semibold text-ink-800">படம்</span>
+          <span class="text-[11px] text-ink-500">Gallery</span>
+        </button>
+
+        <button type="button" class="source-button" (click)="audioInput.click()">
+          <span class="text-2xl" aria-hidden="true">🎵</span>
+          <span class="mt-1 text-sm font-semibold text-ink-800">ஒலி</span>
+          <span class="text-[11px] text-ink-500">Audio</span>
+        </button>
+
+        <button type="button" class="source-button" (click)="docInput.click()">
+          <span class="text-2xl" aria-hidden="true">📄</span>
+          <span class="mt-1 text-sm font-semibold text-ink-800">ஆவணம்</span>
+          <span class="text-[11px] text-ink-500">Files</span>
+        </button>
+      </div>
+      <p class="mt-2 text-center text-xs text-ink-500">
+        படங்கள் 1280px ஆகச் சுருக்கப்படும். / Photos are resized to max 1280px; audio and documents are attached as-is.
+      </p>
+    } @else {
+      <!-- ---------------- Desktop: drop zone ---------------- -->
+      <div
+        class="dropzone"
+        [class.dropzone--active]="isDragging()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+        (keydown.enter)="fileInput.click()"
+        (keydown.space)="fileInput.click()"
+        tabindex="0"
+        role="button"
+        aria-label="கோப்புகளைத் தேர்ந்தெடு / Choose files to attach"
+      >
         <svg viewBox="0 0 24 24" class="mx-auto h-9 w-9 text-ink-500" fill="currentColor" aria-hidden="true">
           <path
             d="M19 15v3a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-3a1 1 0 1 0-2 0v3a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-3a1 1 0 1 0-2 0Z"
@@ -68,8 +94,8 @@
         <p class="mt-1 text-xs text-ink-500">
           Drag &amp; drop, or click to browse. Images are resized to max 1280px and re-encoded at 60% JPEG quality.
         </p>
-      }
-    </div>
+      </div>
+    }
 
     <!-- ---------------- Attachment list ---------------- -->
     @if (attachments().length) {

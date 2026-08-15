@@ -37,10 +37,14 @@
         class="btn-ghost justify-center py-3"
         [disabled]="!canExport()"
         (click)="sendEmail()"
-        title="Opens a Gmail compose tab with the subject and body filled in"
+        [title]="
+          isMobile
+            ? 'Opens your mail app with the subject and body filled in'
+            : 'Opens a Gmail compose tab with the subject and body filled in'
+        "
       >
         <span aria-hidden="true">✉️</span>
-        <span>Gmail-ல் அனுப்பு</span>
+        <span>{{ isMobile ? 'மின்னஞ்சலில் அனுப்பு' : 'Gmail-ல் அனுப்பு' }}</span>
       </button>
 
       <!-- ---------------- Copy ---------------- -->
@@ -59,19 +63,32 @@
       <ul class="mt-4 space-y-1 text-xs text-ink-500">
         <li>• PDF: A4, formal Tamil header, page breaks handled automatically.</li>
         <li>• ZIP: document as <code>.txt</code> + all compressed attachments.</li>
-        <li>• Gmail: opens a compose tab in a new window — attach the PDF/ZIP yourself.</li>
+        @if (isMobile) {
+          <li>• மின்னஞ்சல்: opens your phone's mail app — attach the PDF/ZIP yourself.</li>
+        } @else {
+          <li>• Gmail: opens a compose tab in a new window — attach the PDF/ZIP yourself.</li>
+        }
       </ul>
     }
 
     @if (emailNeedsPaste() && hasContent()) {
       <p class="mt-3 text-xs text-ink-500">
-        உரை நீளமாக இருப்பதால் Gmail இணைப்பில் அனுப்ப முடியாது — பொருள் மட்டும் நிரப்பப்படும், முழு உரை clipboard-ல்
-        நகலெடுக்கப்படும். Gmail-ல் <kbd class="rounded border border-ink-300 px-1">Ctrl</kbd> +
-        <kbd class="rounded border border-ink-300 px-1">V</kbd> செய்யவும்.
-        <span class="block">
-          Too long for a Gmail link: the subject is filled in and the full text is copied to your clipboard — paste it
-          into the compose window.
-        </span>
+        @if (isMobile) {
+          உரை நீளமாக இருப்பதால் மின்னஞ்சல் இணைப்பில் அனுப்ப முடியாது — பொருள் மட்டும் நிரப்பப்படும், முழு உரை
+          clipboard-ல் நகலெடுக்கப்படும். மின்னஞ்சலில் நீண்ட நேரம் அழுத்தி (long-press) Paste செய்யவும்.
+          <span class="block">
+            Too long for a mail link: the subject is filled in and the full text is copied to your clipboard —
+            long-press the message body and tap Paste.
+          </span>
+        } @else {
+          உரை நீளமாக இருப்பதால் Gmail இணைப்பில் அனுப்ப முடியாது — பொருள் மட்டும் நிரப்பப்படும், முழு உரை clipboard-ல்
+          நகலெடுக்கப்படும். Gmail-ல் <kbd class="rounded border border-ink-300 px-1">Ctrl</kbd> +
+          <kbd class="rounded border border-ink-300 px-1">V</kbd> செய்யவும்.
+          <span class="block">
+            Too long for a Gmail link: the subject is filled in and the full text is copied to your clipboard — paste it
+            into the compose window.
+          </span>
+        }
       </p>
     }
   </div>

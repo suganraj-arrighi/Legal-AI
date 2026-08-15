@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 
 import { environment } from '../../../environments/environment';
 import { CompressionOptions, RtiAttachment } from '../../models/rti.models';
+import { PlatformService } from '../../services/platform.service';
 import { RtiService } from '../../services/rti.service';
 import { ToastService } from '../../services/toast.service';
 
@@ -23,8 +24,35 @@ import { ToastService } from '../../services/toast.service';
 export class MediaAttachmentComponent {
   private readonly rti = inject(RtiService);
   private readonly toast = inject(ToastService);
+  private readonly platform = inject(PlatformService);
 
   private readonly options: CompressionOptions = environment.compression;
+
+  /**
+   * Phones get one button per source instead of a single drop zone.
+   *
+   * A drop zone is meaningless without a mouse, and its one mixed `accept`
+   * list was actively harmful: Android hands a request for images *and*
+   * documents to the Documents picker, so tapping it never offered the
+   * gallery. One narrow `accept` per button is what routes each tap to the
+   * right OS picker.
+   */
+  readonly isMobile = this.platform.isMobile;
+
+  /** Photos only — this is the list that makes Android open the gallery. */
+  readonly acceptImages = 'image/*';
+
+  /** Recordings; Android opens the audio/media picker, iOS its Files sheet. */
+  readonly acceptAudio = 'audio/*';
+
+  /** Documents. Kept free of `image/*` so it lands in the Files app. */
+  readonly acceptDocs = 'application/pdf,.doc,.docx,.txt';
+
+  /**
+   * Desktop accepts everything in one picker — there is no per-source routing
+   * to preserve, and one dialog is fewer clicks than three.
+   */
+  readonly acceptAll = `${this.acceptImages},${this.acceptAudio},${this.acceptDocs}`;
 
   /** Highlight state for the drag-and-drop zone. */
   readonly isDragging = signal(false);

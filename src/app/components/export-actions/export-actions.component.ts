@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
+import { PlatformService } from '../../services/platform.service';
 import { RtiService } from '../../services/rti.service';
 import { ToastService } from '../../services/toast.service';
 
@@ -17,7 +18,8 @@ import { ToastService } from '../../services/toast.service';
  *
  *  • PDF  — html2pdf.js renders a hidden, print-styled A4 node.
  *  • ZIP  — jszip bundles a .txt of the document plus every compressed file.
- *  • Mail — opens a Gmail compose tab pre-filled with subject + body.
+ *  • Mail — a Gmail compose tab on desktop, the phone's own mail app on mobile,
+ *           either way pre-filled with subject + body.
  *
  * Both heavy libraries are loaded with dynamic `import()` so they are only
  * fetched the first time the advocate actually exports something.
@@ -33,6 +35,7 @@ export class ExportActionsComponent {
   private readonly rti = inject(RtiService);
   private readonly toast = inject(ToastService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly platform = inject(PlatformService);
 
   /** The off-screen node handed to html2pdf.js. */
   private readonly pdfRoot = viewChild.required<ElementRef<HTMLElement>>('pdfRoot');
@@ -77,9 +80,34 @@ export class ExportActionsComponent {
    */
   private static readonly MAX_COMPOSE_URL_LENGTH = 7800;
 
+  /**
+   * Ceiling for the `mailto:` link used on phones and tablets.
+   *
+   * Here the limit is not a server but the OS: Android hands the URI to the
+   * mail app through an Intent and iOS through a URL open, and both start
+   * silently truncating the body well before the browser's own URL limit.
+   * 2 000 characters is the length that survives intact on both — roughly 220
+   * Tamil characters, since percent-encoding costs nine characters each.
+   */
+  private static readonly MAX_MAILTO_URL_LENGTH = 2000;
+
+  /**
+   * Phones and tablets get a `mailto:` link instead of Gmail's compose URL.
+   *
+   * The compose URL is right on a desktop, but on a phone it lands in the
+   * browser's mobile Gmail page — the installed Gmail app never comes to the
+   * front, and the compose parameters are often dropped along the way. A
+   * `mailto:` has the opposite problem profile: on a desktop it may find no
+   * mail handler at all, but every phone has one registered, which for these
+   * advocates is Gmail.
+   */
+  readonly isMobile = this.platform.isMobile;
+
   /** True when the body must be pasted rather than carried in the link. */
-  readonly emailNeedsPaste = computed(
-    () => this.buildGmailComposeUrl(true).length > ExportActionsComponent.MAX_COMPOSE_URL_LENGTH
+  readonly emailNeedsPaste = computed(() =>
+    this.isMobile
+      ? this.buildMailtoUrl(true).length > ExportActionsComponent.MAX_MAILTO_URL_LENGTH
+      : this.buildGmailComposeUrl(true).length > ExportActionsComponent.MAX_COMPOSE_URL_LENGTH
   );
 
   readonly isBusy = computed(() => this.exportJob() !== 'none');
@@ -189,13 +217,16 @@ export class ExportActionsComponent {
   /* ------------------------------- Email -------------------------------- */
 
   /**
-   * Open a pre-filled Gmail compose window in a new tab.
+   * Hand the draft to the advocate's mail client, pre-filled.
    *
-   * A `mailto:` link handed the draft to whatever the OS registered as the
-   * default mail handler, which on this machine is the browser itself — so
-   * nothing useful opened. Going straight at Gmail's compose URL skips the
-   * handler entirely. `window.open` is safe here because the call is inside a
-   * click handler, so no popup blocker intervenes.
+   * On a desktop that means Gmail's compose URL in a new tab. A `mailto:` link
+   * handed the draft to whatever the OS registered as the default mail handler,
+   * which on the office machines is the browser itself — so nothing useful
+   * opened. Going straight at Gmail's compose URL skips the handler entirely,
+   * and `window.open` is safe because the call sits inside a click handler, so
+   * no popup blocker intervenes.
+   *
+   * On a phone the reasoning inverts — see {@link isMobile}.
    */
   async sendEmail(): Promise<void> {
     if (!this.canExport()) {
@@ -210,6 +241,30 @@ export class ExportActionsComponent {
 
       if (!bodyFitsInUrl) {
         pasteReady = await this.writeToClipboard(this.rti.buildPlainTextPetition());
+      }
+
+      if (this.isMobile) {
+        // Same-tab navigation, not window.open: the mail app takes over the
+        // foreground and a popped-open tab would be left behind empty.
+        window.location.href = this.buildMailtoUrl(bodyFitsInUrl);
+
+        if (bodyFitsInUrl) {
+          this.toast.info(
+            'மின்னஞ்சல் ஆப் திறக்கப்படுகிறது',
+            'Your mail app (Gmail, if it is the default) is opening with the draft filled in. Attach the PDF/ZIP yourself — a browser cannot attach files for you.'
+          );
+        } else if (pasteReady) {
+          this.toast.success(
+            'உரை நகலெடுக்கப்பட்டது — மின்னஞ்சலில் ஒட்டவும்',
+            'The document is too long to travel in a mail link, so only the subject was filled in and the full text was copied to your clipboard. Long-press the message body and tap Paste.'
+          );
+        } else {
+          this.toast.warning(
+            'பொருள் மட்டும் நிரப்பப்பட்டது',
+            'The document is too long for a mail link and the clipboard was blocked. Tap "உரையை நகலெடு", then long-press the message body and tap Paste.'
+          );
+        }
+        return;
       }
 
       const tab = window.open(
@@ -282,6 +337,22 @@ export class ExportActionsComponent {
     // which Gmail shows literally inside the body text.
     const su = encodeURIComponent(this.subject() || this.heading());
     const base = `https://mail.google.com/mail/?view=cm&fs=1&su=${su}`;
+    if (!includeBody) {
+      return base;
+    }
+    return `${base}&body=${encodeURIComponent(this.rti.buildPlainTextPetition())}`;
+  }
+
+  /**
+   * `mailto:` link for phones and tablets — no recipient, so the mail app opens
+   * on a fresh draft with the cursor in the To field.
+   *
+   * @param includeBody false fills in the subject only, for documents the OS
+   *   would truncate on the way to the mail app.
+   */
+  private buildMailtoUrl(includeBody: boolean): string {
+    const subject = encodeURIComponent(this.subject() || this.heading());
+    const base = `mailto:?subject=${subject}`;
     if (!includeBody) {
       return base;
     }

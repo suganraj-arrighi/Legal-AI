@@ -36,3 +36,29 @@
   opacity: 0.75;
   cursor: progress;
 }
+
+/* Per-source picker button, mobile only. Sized past the 44px touch target so
+   it can be tapped with a thumb while holding the phone one-handed. */
+.source-button {
+  display: flex;
+  min-height: 5.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid #c9d4ea;
+  background: #f4f6fb;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.source-button:active {
+  border-color: #c2933a;
+  background: #fdf6e7;
+}
+
+.source-button:focus-visible {
+  outline: 3px solid #c2933a;
+  outline-offset: 3px;
+}

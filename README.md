@@ -110,6 +110,7 @@ src/app/
 ├── services/
 │   ├── rti.service.ts               ← state + Gemini API (draft + transcribe) + JSON repair + text utils
 │   ├── audio-recorder.service.ts    Web Audio capture → 16 kHz mono WAV (Gemini dictation)
+│   ├── platform.service.ts          Phone-or-desktop, read once — steers the mail link and file pickers
 │   └── toast.service.ts             Signal-backed toast queue
 └── components/
     ├── voice-input/                 Step 1 — webkitSpeechRecognition, live interim text, mic animation
@@ -202,7 +203,16 @@ Gemini call.
 **3. Editor** — ngx-quill with a deliberately small toolbar. Service→control sync uses
 `emitEvent: false`, control→service is debounced 150 ms; the two directions cannot loop.
 
-**4. Attachments** — images are decoded with `createImageBitmap` (falling back to
+**4. Attachments** — desktop gets a drag-and-drop zone; phones and tablets get one button
+per source (**படம்** / **ஒலி** / **ஆவணம்**), because a drop zone means nothing without a
+mouse and its single mixed `accept` list was actively breaking the picker: Android hands a
+request for images *and* documents to the Documents picker, so tapping it never offered the
+gallery. Each button owns its own hidden `<input>` with a narrow `accept` — `image/*` opens
+the gallery, `audio/*` the media picker, the document list the Files app. Separate inputs
+rather than one input whose `accept` is rewritten before each `.click()`, since Android reads
+the attribute as the picker opens and the change had not always landed by then.
+
+Images are decoded with `createImageBitmap` (falling back to
 `<img>` + object URL), contain-fitted into 1280×1280, painted onto a **white** background
 (JPEG has no alpha, so PNGs would otherwise go black) and re-encoded at quality 0.6. Each
 row shows `5.2 MB → 210 KB  −96%`. Non-images, SVG/GIF, already-small files, and files where
@@ -213,11 +223,20 @@ document type) at 2× scale, after awaiting `document.fonts.ready` so Tamil glyp
 `jszip` bundles the document `.txt` plus every attachment (duplicate filenames get `-2`, `-3`
 suffixes). Both libraries are dynamically `import()`ed, so neither is in the initial bundle.
 
-**Email** opens a Gmail compose tab — `https://mail.google.com/mail/?view=cm&fs=1&su=…` via
-`window.open` from inside the click handler, so no popup blocker fires. A `mailto:` link was
+**Email** takes a different route per platform, because the two fail in opposite directions.
+
+*On a desktop* it opens a Gmail compose tab — `https://mail.google.com/mail/?view=cm&fs=1&su=…`
+via `window.open` from inside the click handler, so no popup blocker fires. A `mailto:` link was
 the earlier approach, but it hands the draft to whatever the OS registered as the default mail
-handler — on a machine with no mail client that is the browser itself, so nothing useful
-opened. Gmail cannot be handed attachments by a link, so the PDF/ZIP is still attached by hand.
+handler — on a machine with no mail client that is the browser itself, so nothing useful opened.
+
+*On a phone or tablet* that same compose URL lands in the browser's mobile Gmail page: the
+installed Gmail app never comes to the front and the compose parameters are often dropped on
+the way. So mobile gets the `mailto:` link instead — every phone has a mail handler registered,
+and for these advocates it is Gmail. Detection is by user agent, plus `maxTouchPoints` to catch
+iPadOS 13+, which reports a desktop Safari UA.
+
+Either way a link cannot carry attachments, so the PDF/ZIP is still attached by hand.
 
 **The compose-URL length limit.** Gmail answers an over-long compose URL with a flat
 `400 Bad Request`. The boundary was measured against Google's front end, not guessed — an
@@ -239,6 +258,12 @@ turns every byte into three URL characters, so one dictated character costs **ni
 850 Tamil characters of document per link. Past that, `sendEmail()` copies the full text to
 the clipboard and opens Gmail with **the subject only**, then toasts "Ctrl+V". Under it, the
 body rides in the link and the message is ready to send.
+
+**The `mailto:` length limit** is lower and set by the OS rather than a server: Android passes
+the URI to the mail app through an Intent and iOS through a URL open, and both truncate a long
+body silently instead of erroring. `MAX_MAILTO_URL_LENGTH` is **2 000** — about 220 Tamil
+characters — and past it the mobile path does the same subject-only-plus-clipboard fallback,
+toasting "long-press and Paste" rather than "Ctrl+V".
 
 ---
 
