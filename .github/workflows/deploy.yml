@@ -27,7 +27,7 @@ jobs:
           node-version: '20'
           cache: npm
 
-      - run: npm ci
+      - run: npm i
 
       - name: Inject Gemini API key
         env:
