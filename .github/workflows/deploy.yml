@@ -46,9 +46,10 @@ jobs:
       # `enablement: true` turns Pages on for the repo the first time this runs,
       # instead of failing with "Get Pages site failed / Not Found". Needs the
       # `pages: write` permission granted above. Harmless once Pages is on.
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
+          token: ${{ secrets.PAGES_TOKEN }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
