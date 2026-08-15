@@ -1,0 +1,89 @@
+<section class="card" aria-labelledby="editor-step-title">
+  <header class="card-header">
+    <span class="step-badge">3</span>
+    <div class="flex-1">
+      <h2 id="editor-step-title" class="text-base font-bold text-ink-900">மனுவைத் திருத்துங்கள்</h2>
+      <p class="text-xs text-ink-500">Review and edit the drafted document. Nothing is sent anywhere until you export.</p>
+    </div>
+    <span class="hidden text-xs text-ink-500 sm:block">{{ wordCount() }} சொற்கள் · {{ charCount() }} எழுத்துகள்</span>
+  </header>
+
+  <div class="px-5 py-5">
+    <!-- ---------------- Document type ---------------- -->
+    <!--
+      Set by Gemini from the dictation, overridable here. It drives the PDF
+      heading and the export file name — not the body text, which would need
+      another AI pass to rewrite.
+    -->
+    <div class="mb-5">
+      <label for="doc-kind-select" class="field-label">ஆவண வகை / Document type</label>
+      <!--
+        Selection is expressed per-option rather than as [value] on the select:
+        Angular applies the select's own property bindings before @for has
+        created the options, so a [value] binding would find nothing to match.
+      -->
+      <select id="doc-kind-select" class="text-input" (change)="onDocKindChange($event)" [disabled]="isLoading()">
+        @for (option of docKindOptions; track option.kind) {
+          <option [value]="option.kind" [selected]="option.kind === docKind()">{{ option.label }}</option>
+        }
+      </select>
+      <p class="mt-1 text-xs text-ink-500">
+        பேசிய உள்ளடக்கத்திலிருந்து AI இதைத் தேர்ந்தெடுக்கிறது; தவறாக இருந்தால் இங்கே மாற்றவும். / The AI picks this from
+        what you dictated — change it here if it guessed wrong.
+      </p>
+    </div>
+
+    <!-- ---------------- Subject line ---------------- -->
+    <div class="mb-5">
+      <label for="subject-input" class="field-label">பொருள் / Subject</label>
+      <input
+        id="subject-input"
+        type="text"
+        class="text-input font-semibold"
+        placeholder="எ.கா. நகராட்சி சாலைப் பணி தொடர்பான புகார்"
+        [formControl]="subjectControl"
+        autocomplete="off"
+      />
+      @if (!subjectControl.value) {
+        <p class="mt-1 text-xs text-amber-700">
+          பொருள் இல்லாமல் ஏற்றுமதி செய்யலாம், ஆனால் சேர்ப்பது நல்லது. / Exporting works without a subject, but adding
+          one is recommended.
+        </p>
+      }
+    </div>
+
+    <!-- ---------------- Rich text editor ---------------- -->
+    <label for="quill-host" class="field-label">மனு உரை / Document body</label>
+
+    <div id="quill-host" class="quill-legal">
+      <quill-editor
+        [formControl]="contentControl"
+        [modules]="quillModules"
+        format="html"
+        theme="snow"
+        placeholder="மனுவின் உரை இங்கே… (AI வடிவமைப்புக்குப் பிறகு தானாக நிரப்பப்படும்)"
+        (onEditorCreated)="onEditorCreated()"
+      ></quill-editor>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <p class="text-xs text-ink-500">
+        தமிழ் தட்டச்சுக்கு Windows-ன் தமிழ் விசைப்பலகையைப் பயன்படுத்தலாம். / Use the Windows Tamil keyboard for manual
+        typing.
+      </p>
+      <button type="button" class="btn-ghost" (click)="clearContent()" [disabled]="!hasContent() || isLoading()">
+        உள்ளடக்கத்தை அழி / Clear
+      </button>
+    </div>
+
+    <!-- Empty-state hint (exports stay disabled until there is text). -->
+    @if (!hasContent()) {
+      <p class="mt-4 rounded-xl border border-ink-200 bg-ink-50 px-4 py-2.5 text-sm text-ink-700">
+        எடிட்டர் காலியாக உள்ளது — படி 2-ல் AI வடிவமைப்பைச் செய்யவும் அல்லது நேரடியாகத் தட்டச்சு செய்யவும்.
+        <span class="block text-xs text-ink-500">
+          The editor is empty — run the AI step or type directly. Export buttons stay disabled until then.
+        </span>
+      </p>
+    }
+  </div>
+</section>

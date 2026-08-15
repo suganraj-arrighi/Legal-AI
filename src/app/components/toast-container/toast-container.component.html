@@ -1,0 +1,39 @@
+<!--
+  Toast stack. aria-live="assertive" so screen readers announce failures
+  immediately — the advocate may be looking at the mic, not the corner.
+-->
+<div
+  class="pointer-events-none fixed inset-x-0 top-4 z-50 flex flex-col items-center gap-2 px-4"
+  role="region"
+  aria-live="assertive"
+  aria-label="அறிவிப்புகள் / Notifications"
+>
+  @for (toast of toasts(); track toast.id) {
+    <div
+      class="pointer-events-auto flex w-full max-w-xl animate-toast-in items-start gap-3 rounded-xl border px-4 py-3 shadow-lg"
+      [ngClass]="classesFor(toast.kind)"
+    >
+      <span
+        class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/70 text-sm font-bold"
+        aria-hidden="true"
+        >{{ iconFor(toast.kind) }}</span
+      >
+
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold leading-snug">{{ toast.title }}</p>
+        @if (toast.detail) {
+          <p class="mt-0.5 break-words text-xs leading-relaxed opacity-80">{{ toast.detail }}</p>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="shrink-0 rounded-lg px-2 py-0.5 text-lg leading-none opacity-60 transition hover:opacity-100"
+        (click)="dismiss(toast.id)"
+        aria-label="மூடு / Dismiss"
+      >
+        &times;
+      </button>
+    </div>
+  }
+</div>

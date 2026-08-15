@@ -1,0 +1,20 @@
+/*
+  Quill renders its own DOM outside this component's template, so the bulk of
+  the editor theming lives in src/styles.css (unscoped, under `.quill-legal`).
+  Only host-level layout belongs here.
+*/
+:host {
+  display: block;
+}
+
+/* Give the editor a comfortable reading measure on very wide screens. */
+.quill-legal {
+  max-width: 60rem;
+}
+
+/* Keep the sticky toolbar usable when the petition gets long. */
+:host ::ng-deep .quill-legal .ql-toolbar.ql-snow {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}

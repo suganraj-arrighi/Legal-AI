@@ -1,0 +1,246 @@
+<section class="card" aria-labelledby="voice-step-title">
+  <header class="card-header">
+    <span class="step-badge">1</span>
+    <div class="flex-1">
+      <h2 id="voice-step-title" class="text-base font-bold text-ink-900">குரல் மூலம் மனுவைச் சொல்லுங்கள்</h2>
+      <p class="text-xs text-ink-500">Dictate the petition in Tamil — speak naturally, corrections come later.</p>
+    </div>
+
+    @if (active()) {
+      <span class="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+        <span class="h-2 w-2 animate-pulse rounded-full bg-red-600"></span>
+        {{ mode() === 'gemini' ? 'பதிவாகிறது…' : 'கேட்கிறது…' }}
+      </span>
+    } @else if (transcribing()) {
+      <span class="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+        <span class="h-2 w-2 animate-pulse rounded-full bg-amber-500"></span>
+        எழுத்தாக்கம்…
+      </span>
+    }
+  </header>
+
+  <div class="px-5 py-6">
+    <!-- ================= Engine selector ================= -->
+    <div class="mb-6 flex flex-col items-center gap-2">
+      <div class="inline-flex rounded-xl border border-ink-200 bg-ink-50 p-1" role="group" aria-label="Dictation engine">
+        <button
+          type="button"
+          class="segment"
+          [class.segment--on]="mode() === 'browser'"
+          [disabled]="!supported() || busy() || active()"
+          (click)="setMode('browser')"
+          title="Live transcription by the browser's speech service (Chrome/Edge)"
+        >
+          நேரடி / Live
+        </button>
+        <button
+          type="button"
+          class="segment"
+          [class.segment--on]="mode() === 'gemini'"
+          [disabled]="!recorderSupported() || busy() || active()"
+          (click)="setMode('gemini')"
+          title="Record locally, then transcribe with the Gemini API"
+        >
+          Gemini பதிவு / Record
+        </button>
+      </div>
+
+      <p class="max-w-lg text-center text-xs text-ink-500">
+        @if (mode() === 'browser') {
+          Words appear as you speak. Needs Google's speech service — blocked on some office networks.
+        } @else {
+          Records on this device, then transcribes via the Gemini API. No live text, but it works wherever Step 2
+          works.
+        }
+      </p>
+    </div>
+
+    <!-- ================= Microphone ================= -->
+    <div class="flex flex-col items-center gap-3">
+      <div class="relative flex h-32 w-32 items-center justify-center">
+        <!-- Assistant-style expanding rings; only rendered while active. -->
+        @if (active()) {
+          <span class="mic-ring animate-mic-wave" aria-hidden="true"></span>
+          <span class="mic-ring animate-mic-wave [animation-delay:0.6s]" aria-hidden="true"></span>
+          <span class="mic-ring animate-mic-wave [animation-delay:1.2s]" aria-hidden="true"></span>
+        }
+
+        <!-- In record mode the ring scales with the live input level, so the
+             advocate can see he is being picked up despite the lack of text. -->
+        @if (mode() === 'gemini' && recording()) {
+          <span
+            class="mic-level"
+            [style.transform]="'scale(' + (1 + level() * 0.55) + ')'"
+            aria-hidden="true"
+          ></span>
+        }
+
+        <button
+          type="button"
+          class="mic-button"
+          [class.mic-button--live]="active()"
+          [attr.aria-pressed]="active()"
+          [attr.aria-label]="
+            active()
+              ? (mode() === 'gemini' ? 'பதிவை நிறுத்து / Stop recording' : 'பதிவை நிறுத்து / Stop listening')
+              : 'பதிவைத் தொடங்கு / Start'
+          "
+          [disabled]="(mode() === 'browser' ? !supported() : !recorderSupported()) || busy()"
+          (click)="toggle()"
+        >
+          @if (transcribing()) {
+            <span class="mic-spinner" aria-hidden="true"></span>
+          } @else {
+            <!-- Microphone glyph (inline SVG keeps the app dependency-free) -->
+            <svg viewBox="0 0 24 24" class="h-11 w-11" fill="currentColor" aria-hidden="true">
+              <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z" />
+              <path
+                d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H8a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2h-3v-2.07A7 7 0 0 0 19 11Z"
+              />
+            </svg>
+          }
+        </button>
+      </div>
+
+      <!-- Recording timer -->
+      @if (mode() === 'gemini' && recording()) {
+        <p class="font-mono text-lg font-bold tabular-nums text-red-700">{{ timerLabel() }}</p>
+        @if (secondsLeft() <= 30) {
+          <p class="text-xs font-semibold text-amber-700">
+            {{ secondsLeft() }}s எஞ்சியுள்ளது — தானாக நிறுத்தி எழுத்தாக்கப்படும் / auto-stops and transcribes
+          </p>
+        }
+      }
+
+      <p class="text-center text-sm font-semibold text-ink-700">
+        @if (transcribing()) {
+          Gemini எழுத்தாக்குகிறது… சற்று காத்திருக்கவும்
+        } @else if (active()) {
+          {{ mode() === 'gemini' ? 'பேசுங்கள்… முடித்ததும் மீண்டும் அழுத்தவும்' : 'பேசுங்கள்… நிறுத்த மீண்டும் அழுத்தவும்' }}
+        } @else {
+          {{ mode() === 'gemini' ? 'பதிவு செய்ய ஒலிவாங்கியை அழுத்தவும்' : 'பேச ஆரம்பிக்க ஒலிவாங்கியை அழுத்தவும்' }}
+        }
+      </p>
+
+      <p class="text-center text-xs text-ink-500">
+        @if (transcribing() && geminiRetryAttempt() > 0) {
+          Gemini is busy — retrying automatically ({{ geminiRetryAttempt() + 1 }}/{{ geminiMaxAttempts }}). Your
+          recording is safe.
+        } @else if (transcribing()) {
+          Transcribing your recording with Gemini — this usually takes a few seconds.
+        } @else if (active()) {
+          {{ mode() === 'gemini' ? 'Recording on this device. Tap to stop and transcribe.' : 'Listening in Tamil (ta-IN). Tap again to stop.' }}
+        } @else {
+          {{ mode() === 'gemini' ? 'Tap to record, then Gemini transcribes it into Tamil.' : 'Tap the microphone to dictate in Tamil.' }}
+        }
+      </p>
+    </div>
+
+    <!-- ================= Unsupported / blocked banners ================= -->
+    @if (!supported() && !recorderSupported()) {
+      <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <strong class="block">இந்த உலாவியில் குரல் உள்ளீடு இல்லை.</strong>
+        Neither speech recognition nor audio recording is available in this browser. Please use
+        <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong>, or type the petition directly in the box
+        below — every other feature works normally.
+      </div>
+    } @else if (!supported()) {
+      <div class="mt-5 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-700">
+        <strong class="block">நேரடி (Live) முறை இந்த உலாவியில் இல்லை.</strong>
+        This browser has no built-in speech recognition, so dictation uses the <strong>Gemini record</strong> mode
+        instead. It works the same way — record, then the text appears below.
+      </div>
+    } @else if (micBlocked()) {
+      <div class="mt-5 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+        <strong class="block">ஒலிவாங்கி அனுமதி மறுக்கப்பட்டுள்ளது.</strong>
+        Microphone access is blocked. Click the padlock 🔒 in the address bar → <em>Microphone</em> → <em>Allow</em>,
+        then reload the page. Until then, please type below.
+      </div>
+    } @else if (speechServiceBlocked()) {
+      <!--
+        Distinct from micBlocked: the microphone works, but the transcription
+        service behind it is unreachable. Persistent (not a toast) because the
+        fix list takes longer to read than a toast lives.
+      -->
+      <div class="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <strong class="block">நேரடி குரல் சேவை நிலையற்றது (network).</strong>
+        <p class="mt-1 leading-relaxed">
+          Chrome does not transcribe on this machine — it streams the audio to Google's speech servers, and that
+          connection kept dropping even though this machine is online. Usually an office proxy/firewall or VPN, a
+          Chromium build without Google's speech key (Brave, ungoogled-Chromium), or a page not served over
+          <code>https://</code> / <code>localhost</code>. Everything already dictated is safe in the text below.
+        </p>
+        <p class="mt-2 font-semibold">
+          ✔ Dictation has switched to <em>Gemini பதிவு / Record</em>, which uses the same endpoint as Step 2 — press
+          the microphone and it should work. Typing below always works too.
+        </p>
+      </div>
+    }
+
+    <!--
+      Transient reconnect strip. Deliberately quiet and inline (no toast): the
+      speech service stutters often, recovers by itself, and this clears the
+      instant results resume.
+    -->
+    @if (reconnecting()) {
+      <div
+        class="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        role="status"
+      >
+        <span class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-500"></span>
+        <span>
+          மீண்டும் இணைக்கிறது ({{ retryAttempt() }}/{{ maxRetries }}) — ஒரு நொடி இடைவெளி விடவும்.
+          <span class="opacity-80">Reconnecting — pause for a second; words spoken right now may be missed.</span>
+        </span>
+      </div>
+    }
+
+    <!-- ================= Live transcript ================= -->
+    <div class="mt-6">
+      <div class="mb-1.5 flex items-baseline justify-between">
+        <label for="transcript-box" class="field-label mb-0">நேரடி உரை / Live transcript</label>
+        <span class="text-xs text-ink-500">{{ charCount() }} எழுத்துகள்</span>
+      </div>
+
+      <!-- Read-only "assistant" panel: finalised text in black, interim in grey. -->
+      <div
+        class="min-h-[6rem] rounded-xl border border-ink-200 bg-ink-50/60 px-4 py-3 text-base leading-8"
+        aria-live="polite"
+      >
+        @if (livePreview()) {
+          <span class="text-ink-900">{{ transcript() }}</span>
+          @if (interim()) {
+            <span class="text-ink-500 italic"> {{ interim() }}</span>
+            <span class="ml-0.5 inline-block h-5 w-0.5 animate-caret-blink bg-ink-500 align-middle"></span>
+          }
+        } @else if (recording()) {
+          <span class="text-ink-500 italic">பதிவாகிறது… நிறுத்தியதும் உரை இங்கே தோன்றும்.</span>
+        } @else {
+          <span class="text-ink-200">உங்கள் பேச்சு இங்கே தோன்றும்… / Your dictation appears here…</span>
+        }
+      </div>
+
+      <!-- Editable fallback / correction box, always available. -->
+      <label for="transcript-box" class="field-label mt-4"
+        >திருத்தம் அல்லது நேரடி தட்டச்சு / Edit or type manually</label
+      >
+      <textarea
+        id="transcript-box"
+        rows="5"
+        class="text-input resize-y leading-8"
+        placeholder="இங்கே தமிழில் தட்டச்சு செய்யலாம்…"
+        [value]="transcript()"
+        (input)="onManualInput($event)"
+      ></textarea>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" class="btn-ghost" (click)="clearTranscript()" [disabled]="!transcript() || busy()">
+          அழி / Clear
+        </button>
+        <span class="text-xs text-ink-500">
+          தட்டச்சு செய்தாலும் AI வடிவமைப்பு வேலை செய்யும். / Typed text works with the AI step too.
+        </span>
+      </div>
+    </div>
+  </div>
+</section>

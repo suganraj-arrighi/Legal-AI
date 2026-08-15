@@ -1,0 +1,121 @@
+<section class="card" aria-labelledby="export-step-title">
+  <header class="card-header">
+    <span class="step-badge">5</span>
+    <div class="flex-1">
+      <h2 id="export-step-title" class="text-base font-bold text-ink-900">ஏற்றுமதி / Export</h2>
+      <p class="text-xs text-ink-500">Download the document as a PDF, bundle everything as a ZIP, or send it via Gmail.</p>
+    </div>
+  </header>
+
+  <div class="px-5 py-5">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- ---------------- PDF ---------------- -->
+      <button type="button" class="btn-primary justify-center py-3" [disabled]="!canExport()" (click)="downloadPdf()">
+        @if (exportJob() === 'pdf') {
+          <span class="spinner" aria-hidden="true"></span>
+          <span>PDF தயாராகிறது…</span>
+        } @else {
+          <span aria-hidden="true">📄</span>
+          <span>PDF பதிவிறக்கு</span>
+        }
+      </button>
+
+      <!-- ---------------- ZIP ---------------- -->
+      <button type="button" class="btn-primary justify-center py-3" [disabled]="!canExport()" (click)="downloadZip()">
+        @if (exportJob() === 'zip') {
+          <span class="spinner" aria-hidden="true"></span>
+          <span>ZIP தயாராகிறது…</span>
+        } @else {
+          <span aria-hidden="true">🗜️</span>
+          <span>ZIP தொகுப்பு ({{ attachments().length }})</span>
+        }
+      </button>
+
+      <!-- ---------------- Email (Gmail compose) ---------------- -->
+      <button
+        type="button"
+        class="btn-ghost justify-center py-3"
+        [disabled]="!canExport()"
+        (click)="sendEmail()"
+        title="Opens a Gmail compose tab with the subject and body filled in"
+      >
+        <span aria-hidden="true">✉️</span>
+        <span>Gmail-ல் அனுப்பு</span>
+      </button>
+
+      <!-- ---------------- Copy ---------------- -->
+      <button type="button" class="btn-ghost justify-center py-3" [disabled]="!canExport()" (click)="copyText()">
+        <span aria-hidden="true">📋</span>
+        <span>உரையை நகலெடு</span>
+      </button>
+    </div>
+
+    <!-- Empty-state / guidance -->
+    @if (!hasContent()) {
+      <p class="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        மனு உரை காலியாக இருப்பதால் ஏற்றுமதி முடக்கப்பட்டுள்ளது. / Export is disabled because the document body is empty.
+      </p>
+    } @else {
+      <ul class="mt-4 space-y-1 text-xs text-ink-500">
+        <li>• PDF: A4, formal Tamil header, page breaks handled automatically.</li>
+        <li>• ZIP: document as <code>.txt</code> + all compressed attachments.</li>
+        <li>• Gmail: opens a compose tab in a new window — attach the PDF/ZIP yourself.</li>
+      </ul>
+    }
+
+    @if (emailNeedsPaste() && hasContent()) {
+      <p class="mt-3 text-xs text-ink-500">
+        உரை நீளமாக இருப்பதால் Gmail இணைப்பில் அனுப்ப முடியாது — பொருள் மட்டும் நிரப்பப்படும், முழு உரை clipboard-ல்
+        நகலெடுக்கப்படும். Gmail-ல் <kbd class="rounded border border-ink-300 px-1">Ctrl</kbd> +
+        <kbd class="rounded border border-ink-300 px-1">V</kbd> செய்யவும்.
+        <span class="block">
+          Too long for a Gmail link: the subject is filled in and the full text is copied to your clipboard — paste it
+          into the compose window.
+        </span>
+      </p>
+    }
+  </div>
+</section>
+
+<!--
+  ============================================================
+  Hidden print node consumed by html2pdf.js.
+  It is positioned off-screen rather than `display:none`, because
+  html2canvas cannot rasterise an element with no layout box.
+  ============================================================
+-->
+<div class="pdf-staging" aria-hidden="true">
+  <div #pdfRoot class="pdf-page">
+    <header class="pdf-header">
+      <h1>{{ heading() }}</h1>
+      <p class="pdf-subheading">{{ headingEn() }}</p>
+    </header>
+
+    <div class="pdf-meta">
+      <span>தேதி / Date: {{ todayLabel() }}</span>
+    </div>
+
+    @if (subject()) {
+      <p class="pdf-subject"><strong>பொருள்:</strong> {{ subject() }}</p>
+    }
+
+    <!-- Editor HTML, already sanitised in RtiService. -->
+    <article class="pdf-body" [innerHTML]="safeContent()"></article>
+
+    @if (attachments().length) {
+      <section class="pdf-attachments">
+        <h2>இணைப்புகள் / Enclosures</h2>
+        <ol>
+          @for (file of attachments(); track file.id) {
+            <li>{{ file.name }}</li>
+          }
+        </ol>
+      </section>
+    }
+
+    <footer class="pdf-footer">
+      <p>இவ்வண்ணம்,</p>
+      <p class="pdf-sign">(கையொப்பம் / Signature)</p>
+    </footer>
+  </div>
+</div>

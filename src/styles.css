@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Global base layer
+   ------------------------------------------------------------------ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    /* A subtle paper texture keeps the "legal document" feel without noise. */
+    background-image: radial-gradient(circle at 15% 0%, #e8edf9 0%, transparent 45%),
+      radial-gradient(circle at 85% 10%, #f6efdf 0%, transparent 40%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Larger default hit targets — the primary user is a senior advocate who
+     may be using this on a tablet or with reading glasses. */
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Reusable component classes
+   ------------------------------------------------------------------ */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-ink-200/70 bg-white/90 shadow-sm backdrop-blur-sm;
+  }
+
+  .card-header {
+    @apply flex items-center gap-3 border-b border-ink-100 px-5 py-4;
+  }
+
+  .step-badge {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-800 text-sm font-bold text-white;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-ink-800 text-white shadow hover:bg-ink-700 focus-visible:ring-ink-500;
+  }
+
+  .btn-accent {
+    @apply btn bg-brass-500 text-ink-900 shadow hover:bg-brass-400 focus-visible:ring-brass-600;
+  }
+
+  .btn-ghost {
+    @apply btn border border-ink-200 bg-white text-ink-800 hover:bg-ink-50 focus-visible:ring-ink-500;
+  }
+
+  .btn-danger {
+    @apply btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:ring-red-400;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-ink-700;
+  }
+
+  .text-input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-4 py-3 text-base text-ink-900
+           placeholder:text-ink-200 focus:border-ink-500 focus:outline-none focus:ring-2 focus:ring-ink-500/30;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Quill (ngx-quill) overrides — make the editor look like legal paper
+   and render Tamil at a comfortable size.
+   ------------------------------------------------------------------ */
+.quill-legal .ql-toolbar.ql-snow {
+  border-color: #c9d4ea;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  background: #f4f6fb;
+}
+
+.quill-legal .ql-container.ql-snow {
+  border-color: #c9d4ea;
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  font-family: 'Noto Sans Tamil', 'Latha', system-ui, sans-serif;
+  font-size: 1.0625rem;
+  background: #ffffff;
+}
+
+.quill-legal .ql-editor {
+  min-height: 22rem;
+  line-height: 2;
+  color: #131a33;
+}
+
+.quill-legal .ql-editor ol,
+.quill-legal .ql-editor ul {
+  padding-left: 1.25rem;
+}
+
+.quill-legal .ql-editor.ql-blank::before {
+  color: #9aa8c6;
+  font-style: normal;
+}
+
+/* ------------------------------------------------------------------
+   Print / PDF staging area.
+   The node handed to html2pdf.js is mounted off-screen (not display:none —
+   html2canvas cannot rasterise a hidden element).
+   ------------------------------------------------------------------ */
+.pdf-staging {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  z-index: -1;
+}
+
+/* Screen-reader-only helper */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

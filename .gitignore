@@ -1,0 +1,15 @@
+/node_modules
+/dist
+
+# Holds the personal Gemini API key — recreated from environment.example.ts by
+# scripts/ensure-env.mjs. Never commit this.
+/src/environments/environment.ts
+
+/out-tsc
+/.angular
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

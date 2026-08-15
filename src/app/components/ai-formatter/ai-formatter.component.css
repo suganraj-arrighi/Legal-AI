@@ -1,0 +1,40 @@
+/* Inline spinner used inside the primary button while Gemini is working. */
+.spinner {
+  display: inline-block;
+  height: 1.05rem;
+  width: 1.05rem;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Shimmering placeholder lines shown while the draft is generated. */
+.skeleton {
+  border-radius: 0.375rem;
+  background: linear-gradient(90deg, #e6ebf6 25%, #f4f6fb 50%, #e6ebf6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .skeleton {
+    animation-duration: 3s;
+  }
+}

@@ -1,0 +1,38 @@
+/* Drag-and-drop target. Kept as plain CSS (not @apply) so the dashed-border
+   transition reads clearly. */
+
+.dropzone {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  border-radius: 1rem;
+  border: 2px dashed #c9d4ea;
+  background: #f4f6fb;
+  padding: 1.75rem 1rem;
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.dropzone:hover {
+  border-color: #3f5183;
+  background: #eef2fb;
+}
+
+.dropzone:focus-visible {
+  outline: 3px solid #c2933a;
+  outline-offset: 3px;
+}
+
+/* File is hovering over the zone. */
+.dropzone--active {
+  border-color: #c2933a;
+  background: #fdf6e7;
+  transform: scale(1.01);
+}
+
+/* Compression in flight — block further drops. */
+.dropzone--busy {
+  pointer-events: none;
+  opacity: 0.75;
+  cursor: progress;
+}

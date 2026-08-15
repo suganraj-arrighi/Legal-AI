@@ -1,0 +1,76 @@
+<!-- Global toast layer -->
+<app-toast-container />
+
+<!-- Thin indeterminate progress bar shown during any long-running job. -->
+@if (isLoading()) {
+  <div class="fixed inset-x-0 top-0 z-40 h-1 overflow-hidden bg-ink-100" role="status" aria-label="வேலை நடக்கிறது">
+    <div class="progress-sliver"></div>
+  </div>
+}
+
+<div class="mx-auto flex min-h-screen max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6 lg:py-10">
+  <!-- ============================ Header ============================ -->
+  <header class="card px-5 py-4">
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink-800 text-2xl" aria-hidden="true">
+        ⚖️
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-xl font-bold text-ink-900 sm:text-2xl">வழக்கறிஞர் வரைவு உதவியாளர்</h1>
+        <p class="text-xs text-ink-500 sm:text-sm">
+          Advocate Drafting Assistant — dictate in Tamil; RTI applications, complaints, appeals and notices, drafted and
+          exported in one click.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Connectivity pill -->
+        <span
+          class="rounded-full px-3 py-1 text-xs font-semibold"
+          [class]="online() ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'"
+        >
+          {{ online() ? '● இணைப்பில் உள்ளது' : '● இணைப்பு இல்லை' }}
+        </span>
+
+        <button type="button" class="btn-ghost !px-3 !py-1.5 text-xs" (click)="startNew()" [disabled]="isLoading()">
+          புதிய மனு / New
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================ Steps ============================ -->
+  <main class="flex flex-col gap-5">
+    <!-- Step 1 — dictation -->
+    <app-voice-input />
+
+    <!-- Step 2 — Gemini formatting -->
+    <app-ai-formatter (drafted)="onDrafted()" />
+
+    <!-- Step 3 — editable petition -->
+    <div #editorAnchor class="scroll-mt-6">
+      <app-document-editor />
+    </div>
+
+    <!-- Step 4 — attachments -->
+    <app-media-attachment />
+
+    <!-- Step 5 — export -->
+    <app-export-actions />
+  </main>
+
+  <!-- ============================ Footer ============================ -->
+  <footer class="mt-2 px-1 pb-4 text-center text-xs leading-relaxed text-ink-500">
+    <p>
+      அனைத்து செயலாக்கமும் உங்கள் உலாவியில் நடக்கிறது; உரை மட்டுமே வடிவமைப்புக்காக Gemini-க்கு அனுப்பப்படுகிறது.
+    </p>
+    <p class="mt-1">
+      Everything runs locally in your browser — only the petition text is sent to the Gemini API for formatting.
+      Attachments never leave this device.
+    </p>
+    <p class="mt-2 font-semibold text-amber-700">
+      ⚠ AI வரைவை தாக்கல் செய்வதற்கு முன் எப்போதும் சரிபார்க்கவும். / Always verify the AI draft before filing.
+    </p>
+  </footer>
+</div>

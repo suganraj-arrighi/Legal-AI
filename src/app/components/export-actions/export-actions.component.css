@@ -1,0 +1,158 @@
+:host {
+  display: block;
+}
+
+/* Spinner shared with the AI step (component styles are scoped, so it is
+   redeclared here rather than leaked globally). */
+.spinner {
+  display: inline-block;
+  height: 1.05rem;
+  width: 1.05rem;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==================================================================
+   PDF page styling.
+   html2pdf renders this node at its natural CSS width, so we pin it to
+   the printable width of A4 minus the 14 mm margins (≈ 182 mm ≈ 688 px
+   at 96 dpi) and let the content flow.
+   ================================================================== */
+
+.pdf-page {
+  width: 688px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #000000;
+  font-family: 'Noto Serif Tamil', 'Noto Sans Tamil', 'Latha', Georgia, serif;
+  font-size: 12.5pt;
+  line-height: 1.85;
+  padding: 4px;
+}
+
+.pdf-header {
+  text-align: center;
+  border-bottom: 2.5px solid #000000;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.pdf-header h1 {
+  margin: 0;
+  font-size: 16pt;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.pdf-subheading {
+  margin: 4px 0 0;
+  font-size: 9.5pt;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #333333;
+}
+
+.pdf-meta {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 10.5pt;
+  margin-bottom: 12px;
+}
+
+.pdf-subject {
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #888888;
+  font-size: 12.5pt;
+}
+
+.pdf-body {
+  /* Avoid orphaned headings/list items across page breaks. */
+  page-break-inside: auto;
+}
+
+.pdf-attachments {
+  margin-top: 22px;
+  page-break-inside: avoid;
+}
+
+.pdf-attachments h2 {
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.pdf-attachments ol {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 11pt;
+}
+
+.pdf-footer {
+  margin-top: 34px;
+  page-break-inside: avoid;
+}
+
+.pdf-sign {
+  margin-top: 44px;
+  border-top: 1px solid #000000;
+  display: inline-block;
+  padding-top: 4px;
+  font-size: 11pt;
+}
+
+/*
+  The petition body is injected with [innerHTML], so Angular's style
+  encapsulation does not reach it — ::ng-deep is required here.
+*/
+:host ::ng-deep .pdf-body p {
+  margin: 0 0 10px;
+  text-align: justify;
+}
+
+:host ::ng-deep .pdf-body ol,
+:host ::ng-deep .pdf-body ul {
+  margin: 0 0 12px;
+  padding-left: 26px;
+}
+
+:host ::ng-deep .pdf-body li {
+  margin-bottom: 7px;
+  page-break-inside: avoid;
+}
+
+:host ::ng-deep .pdf-body strong {
+  font-weight: 700;
+}
+
+:host ::ng-deep .pdf-body h2,
+:host ::ng-deep .pdf-body h3 {
+  font-size: 13pt;
+  margin: 16px 0 8px;
+  page-break-after: avoid;
+}
+
+/* Quill emits alignment as classes rather than inline styles. */
+:host ::ng-deep .pdf-body .ql-align-center {
+  text-align: center;
+}
+:host ::ng-deep .pdf-body .ql-align-right {
+  text-align: right;
+}
+:host ::ng-deep .pdf-body .ql-align-justify {
+  text-align: justify;
+}
+:host ::ng-deep .pdf-body .ql-indent-1 {
+  padding-left: 3em;
+}
+:host ::ng-deep .pdf-body .ql-indent-2 {
+  padding-left: 6em;
+}

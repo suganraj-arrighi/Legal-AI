@@ -1,0 +1,93 @@
+<section class="card" aria-labelledby="ai-step-title">
+  <header class="card-header">
+    <span class="step-badge">2</span>
+    <div class="flex-1">
+      <h2 id="ai-step-title" class="text-base font-bold text-ink-900">AI சட்ட வடிவமைப்பு</h2>
+      <p class="text-xs text-ink-500">
+        Gemini works out what you dictated — an RTI application, a complaint, an appeal, a legal notice — and drafts it
+        in that form.
+      </p>
+    </div>
+  </header>
+
+  <div class="px-5 py-5">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <button
+        type="button"
+        class="btn-accent w-full justify-center px-6 py-3 text-base sm:w-auto"
+        [disabled]="disabled()"
+        (click)="format()"
+      >
+        @if (isFormatting()) {
+          <span class="spinner" aria-hidden="true"></span>
+          <span>வடிவமைக்கிறது…</span>
+        } @else {
+          <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
+            <path
+              d="M12 2l1.9 4.6L18.5 8.5 13.9 10.4 12 15l-1.9-4.6L5.5 8.5l4.6-1.9L12 2Zm6.5 10l1 2.4 2.5 1-2.5 1-1 2.4-1-2.4-2.5-1 2.5-1 1-2.4ZM5.5 14l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1L2.5 17l2.1-.9.9-2.1Z"
+            />
+          </svg>
+          <span>சட்ட வடிவில் மாற்று / Format document</span>
+        }
+      </button>
+
+      <!-- Empty-state explanation so the disabled button never looks broken. -->
+      @if (!hasTranscript()) {
+        <p class="text-sm text-ink-500">
+          முதலில் படி 1-ல் பேசவும் அல்லது தட்டச்சு செய்யவும். / Dictate or type something in Step 1 first.
+        </p>
+      } @else if (isFormatting() && retryAttempt() > 0) {
+        <!--
+          Gemini's flash models shed load with a 503 under demand spikes. The
+          service retries automatically; saying so stops the wait looking like
+          a hang, and reassures that the dictation has not been lost.
+        -->
+        <p class="text-sm font-medium text-amber-700">
+          Gemini தற்போது பணிமிகுதியில் உள்ளது — தானாக மீண்டும் முயற்சிக்கிறது ({{ retryAttempt() + 1 }}/{{ maxAttempts }}).
+          உங்கள் உரை பாதுகாப்பாக உள்ளது.
+          <span class="block text-xs text-amber-600">
+            The model is busy; retrying automatically. Your dictation is safe.
+          </span>
+        </p>
+      } @else if (isFormatting()) {
+        <p class="text-sm text-ink-500">
+          Gemini உடன் தொடர்பில்… இது 5–20 வினாடிகள் ஆகலாம். / Contacting Gemini — this can take 5–20 seconds.
+        </p>
+      }
+    </div>
+
+    <!-- Loading skeleton keeps the layout stable while waiting. -->
+    @if (isFormatting()) {
+      <div class="mt-5 space-y-2" aria-hidden="true">
+        <div class="skeleton h-3.5 w-2/3"></div>
+        <div class="skeleton h-3.5 w-full"></div>
+        <div class="skeleton h-3.5 w-11/12"></div>
+        <div class="skeleton h-3.5 w-3/4"></div>
+      </div>
+    }
+
+    <!-- Inline error panel (in addition to the toast) with a retry affordance. -->
+    @if (status() === 'error' && lastError(); as message) {
+      <div
+        class="mt-5 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900"
+        role="alert"
+      >
+        <p class="font-semibold">வடிவமைப்பு தோல்வியடைந்தது</p>
+        <p class="mt-1 break-words leading-relaxed">{{ message }}</p>
+        <button type="button" class="btn-danger mt-3" (click)="retry()" [disabled]="isLoading()">
+          மீண்டும் முயற்சி / Retry
+        </button>
+      </div>
+    }
+
+    @if (status() === 'success') {
+      <p class="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900">
+        ✓ வரைவு கீழே உள்ள எடிட்டரில் ஏற்றப்பட்டது — வகை: <strong>{{ docMeta().label }}</strong>
+        <span class="block text-xs opacity-80">
+          Draft loaded into the editor below. If the detected document type is wrong, change it in Step 3. Always verify
+          before filing.
+        </span>
+      </p>
+    }
+  </div>
+</section>

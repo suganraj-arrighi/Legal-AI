@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ta">
+  <head>
+    <meta charset="utf-8" />
+    <title>வழக்கறிஞர் வரைவு உதவியாளர் | Advocate Drafting Assistant</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Inline SVG favicon (⚖️) keeps the app free of binary assets. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%96%EF%B8%8F</text></svg>"
+    />
+
+    <!--
+      Tamil web fonts. These matter twice over:
+      1. On-screen legibility for long petition text.
+      2. html2pdf.js renders the DOM through html2canvas, so whatever font the
+         browser paints is what lands in the PDF. Without a real Tamil font the
+         PDF would show tofu boxes.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Serif+Tamil:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="font-tamil bg-ink-50 text-ink-900 antialiased">
+    <app-root></app-root>
+  </body>
+</html>

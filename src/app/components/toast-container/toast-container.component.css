@@ -1,0 +1,5 @@
+/* Toasts must float above the Quill toolbar (which sets its own stacking). */
+:host {
+  position: relative;
+  z-index: 60;
+}
