@@ -93,15 +93,33 @@ export class ExportActionsComponent {
   private static readonly MAX_COMPOSE_URL_LENGTH = 7800;
 
   /**
-   * Ceiling for the `mailto:` link used on phones and tablets.
+   * Ceiling for the `mailto:` link on iOS.
    *
-   * Here the limit is not a server but the OS: Android hands the URI to the
-   * mail app through an Intent and iOS through a URL open, and both start
-   * silently truncating the body well before the browser's own URL limit.
-   * 2 000 characters is the length that survives intact on both — roughly 220
-   * Tamil characters, since percent-encoding costs nine characters each.
+   * Here the limit is not a server but the OS: Safari hands the URI to Mail
+   * through a plain URL open, which starts silently truncating the body well
+   * before the browser's own URL limit. 2 000 characters is what survives
+   * intact — roughly 220 Tamil characters, since percent-encoding costs nine
+   * characters each.
    */
-  private static readonly MAX_MAILTO_URL_LENGTH = 2000;
+  private static readonly MAX_MAILTO_URL_LENGTH_IOS = 2000;
+
+  /**
+   * Ceiling for the `mailto:` link on Android — fifteen times the iOS one,
+   * because the transport is completely different.
+   *
+   * Chrome turns the URI into an `ACTION_SENDTO` Intent and Gmail reads the
+   * `body` query parameter straight off it. That travels over Binder, whose
+   * transaction budget is about a megabyte, so the practical limit is orders
+   * of magnitude above anything an advocate will dictate. The old shared
+   * 2 000-character ceiling was the iOS figure applied to both, and it meant
+   * every petition longer than a short paragraph reached Gmail with its
+   * subject filled in and its body missing.
+   *
+   * 30 000 characters is roughly 3 300 Tamil characters of document — beyond
+   * any petition this tool has produced — while still leaving the Binder
+   * budget almost untouched.
+   */
+  private static readonly MAX_MAILTO_URL_LENGTH_ANDROID = 30000;
 
   /**
    * Phones and tablets get a `mailto:` link instead of Gmail's compose URL.
@@ -115,10 +133,15 @@ export class ExportActionsComponent {
    */
   readonly isMobile = this.platform.isMobile;
 
+  /** How long a `mailto:` this device's mail handler accepts intact. */
+  private readonly maxMailtoLength = this.platform.isIos
+    ? ExportActionsComponent.MAX_MAILTO_URL_LENGTH_IOS
+    : ExportActionsComponent.MAX_MAILTO_URL_LENGTH_ANDROID;
+
   /** True when the body must be pasted rather than carried in the link. */
   readonly emailNeedsPaste = computed(() =>
     this.isMobile
-      ? this.buildMailtoUrl(true).length > ExportActionsComponent.MAX_MAILTO_URL_LENGTH
+      ? this.buildMailtoUrl(true).length > this.maxMailtoLength
       : this.buildGmailComposeUrl(true).length > ExportActionsComponent.MAX_COMPOSE_URL_LENGTH
   );
 
@@ -256,26 +279,34 @@ export class ExportActionsComponent {
       }
 
       if (this.isMobile) {
-        // Same-tab navigation, not window.open: the mail app takes over the
-        // foreground and a popped-open tab would be left behind empty.
-        window.location.href = this.buildMailtoUrl(bodyFitsInUrl);
-
+        // Raise the notice before navigating. The mail app comes straight to
+        // the foreground, so a paste instruction on a four-second timer would
+        // expire unread behind it — those two get no timeout at all and wait
+        // on screen until the advocate switches back and dismisses them.
         if (bodyFitsInUrl) {
           this.toast.info(
             'மின்னஞ்சல் ஆப் திறக்கப்படுகிறது',
             'Your mail app (Gmail, if it is the default) is opening with the draft filled in. Attach the PDF/ZIP yourself — a browser cannot attach files for you.'
           );
         } else if (pasteReady) {
-          this.toast.success(
+          this.toast.push(
+            'success',
             'உரை நகலெடுக்கப்பட்டது — மின்னஞ்சலில் ஒட்டவும்',
-            'The document is too long to travel in a mail link, so only the subject was filled in and the full text was copied to your clipboard. Long-press the message body and tap Paste.'
+            'The document is too long to travel in a mail link, so only the subject was filled in and the full text was copied to your clipboard. Long-press the message body and tap Paste.',
+            0
           );
         } else {
-          this.toast.warning(
+          this.toast.push(
+            'warning',
             'பொருள் மட்டும் நிரப்பப்பட்டது',
-            'The document is too long for a mail link and the clipboard was blocked. Tap "உரையை நகலெடு", then long-press the message body and tap Paste.'
+            'The document is too long for a mail link and the clipboard was blocked. Tap "உரையை நகலெடு", then long-press the message body and tap Paste.',
+            0
           );
         }
+
+        // Same-tab navigation, not window.open: the mail app takes over the
+        // foreground and a popped-open tab would be left behind empty.
+        window.location.href = this.buildMailtoUrl(bodyFitsInUrl);
         return;
       }
 
