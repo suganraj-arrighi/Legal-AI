@@ -20,14 +20,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '24'
+          node-version: '22'
           cache: npm
 
-      - run: npm i
+      - run: npm ci
 
       - name: Inject Gemini API key
         env:
@@ -43,7 +43,12 @@ jobs:
       - name: Disable Jekyll processing
         run: touch dist/advocate-rti-assistant/browser/.nojekyll
 
+      # `enablement: true` turns Pages on for the repo the first time this runs,
+      # instead of failing with "Get Pages site failed / Not Found". Needs the
+      # `pages: write` permission granted above. Harmless once Pages is on.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
